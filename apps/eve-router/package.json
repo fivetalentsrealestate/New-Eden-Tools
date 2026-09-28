@@ -1,0 +1,50 @@
+{
+  "name": "eve-router-desktop",
+  "productName": "EVE Router",
+  "version": "1.0.0",
+  "description": "Local desktop map of New Eden with sovereignty overlay and a capital jump planner.",
+  "main": "main.js",
+  "author": "Dale Smith",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node scripts/test-planner.js",
+    "dist": "electron-builder --win nsis",
+    "shortcut": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-desktop-shortcut.ps1"
+  },
+  "dependencies": {
+    "yauzl": "^3.2.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.fivetalents.everouter",
+    "productName": "EVE Router",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib/**/*",
+      "renderer/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "EVE Router"
+    }
+  }
+}

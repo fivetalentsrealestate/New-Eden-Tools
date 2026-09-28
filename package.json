@@ -1,0 +1,15 @@
+{
+  "name": "new-eden-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EVE Online tools for web, phone and Windows: Market Finder, EVE Router (jump drive planner) and EVE Gate Planner (stargate routes).",
+  "license": "MIT",
+  "scripts": {
+    "test": "node apps/eve-router/scripts/test-planner.js && node apps/eve-gate-planner/scripts/test-gates.js",
+    "build": "node scripts/build-site.js",
+    "preview": "node scripts/preview.js"
+  },
+  "dependencies": {
+    "yauzl": "^3.2.0"
+  }
+}

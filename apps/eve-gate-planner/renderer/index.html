@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#05070b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' https://images.evetech.net data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://esi.evetech.net; worker-src 'self'; manifest-src 'self'">
+  <title>EVE Gate Planner</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="gates.css">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <button id="sheetHandle" class="sheet-handle" type="button"><span id="sheetLabel">Route planner</span><span class="chev">▲</span></button>
+      <header class="brand">
+        <img src="icon-192.png" alt="" class="brand-icon">
+        <div>
+          <div class="brand-name">EVE Gate Planner</div>
+          <div class="brand-sub">Stargate routes with autopilot options</div>
+        </div>
+      </header>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="route">Route</button>
+        <button class="tab" data-tab="sov">Sovereignty</button>
+        <button class="tab" data-tab="system">System</button>
+      </nav>
+
+      <!-- ROUTE -->
+      <section class="panel active" id="panel-route">
+        <div class="stops">
+          <div class="stop-row">
+            <span class="stop-dot start">S</span>
+            <input id="from" list="systemList" placeholder="Start system" autocomplete="off">
+          </div>
+          <div id="waypoints"></div>
+          <div class="stop-row add">
+            <span class="stop-dot wp">+</span>
+            <input id="wpInput" list="systemList" placeholder="Add a waypoint (optional)" autocomplete="off">
+          </div>
+          <div class="stop-row">
+            <span class="stop-dot end">D</span>
+            <input id="to" list="systemList" placeholder="Destination" autocomplete="off">
+            <button id="swap" class="ghost icon-btn" title="Reverse route">⇅</button>
+          </div>
+        </div>
+
+        <!-- Autopilot settings, same wording as the in-game route settings -->
+        <div class="ap">
+          <div class="ap-title">Route settings</div>
+          <label class="radio"><input type="radio" name="mode" value="shorter"> Prefer Shorter - Ignore Security Status</label>
+          <label class="radio"><input type="radio" name="mode" value="safer" checked> Prefer Safer - Stay in 0.5 to 1.0 Where Possible</label>
+          <label class="radio"><input type="radio" name="mode" value="lesssecure"> Prefer Less Secure - Stay in 0.0 to 0.4 Where Possible</label>
+          <div class="penalty" id="penaltyRow">
+            <input type="range" id="penalty" min="0" max="100" step="1" value="50">
+            <span>Security penalty <strong id="penaltyVal">50</strong></span>
+          </div>
+
+          <label class="check"><input type="checkbox" id="optBridges"> Include Jump Bridges in Route
+            <button id="editBridges" class="ghost small inline-btn" type="button">Edit (<span id="bridgeCount">0</span>)</button>
+          </label>
+          <label class="check"><input type="checkbox" id="optPods"> Avoid Systems Where Pod Killing has Recently Occurred</label>
+          <div class="sub" id="podRow">
+            Pod kills in last hour ≥ <input type="number" id="podMin" min="1" max="50" value="1">
+            <span id="killsStatus" class="note"></span>
+            <button id="killsRefresh" class="ghost small" type="button">Refresh</button>
+          </div>
+          <label class="check"><input type="checkbox" id="optTrig"> Avoid Triglavian Minor Victory Systems</label>
+          <label class="check"><input type="checkbox" id="optEden"> Avoid EDENCOM Systems</label>
+          <label class="check"><input type="checkbox" id="optAvoid" checked> Avoid Systems on Your Avoidance List</label>
+          <div class="sub">
+            <div class="avoid-row">
+              <input id="avoidInput" list="systemList" placeholder="Add a system to avoid" autocomplete="off">
+              <button id="avoidAdd" class="ghost" type="button">Add</button>
+            </div>
+            <div id="avoidChips" class="chips"></div>
+          </div>
+          <label class="check"><input type="checkbox" id="optStop" checked> Disable Autopilot at Each Waypoint</label>
+        </div>
+
+        <div class="btn-row">
+          <button id="plan" class="primary">Calculate route</button>
+          <button id="clearRoute" class="ghost">Clear</button>
+        </div>
+
+        <div id="routeResult"></div>
+      </section>
+
+      <!-- SOVEREIGNTY -->
+      <section class="panel" id="panel-sov">
+        <div class="sov-status">
+          <span id="sovStatus">Not loaded</span>
+          <button id="sovRefresh" class="ghost small">Refresh</button>
+        </div>
+        <input id="sovFilter" placeholder="Filter alliances…" autocomplete="off">
+        <div id="sovList" class="sov-list"></div>
+      </section>
+
+      <!-- SYSTEM -->
+      <section class="panel" id="panel-system">
+        <div id="systemInfo" class="empty">Click a system on the map, or search for one above the map.</div>
+      </section>
+
+      <footer class="data-foot">
+        <span id="dataStatus"></span>
+        <button id="dataRefresh" class="ghost small" title="Re-download map data from CCP">Update map data</button>
+      </footer>
+    </aside>
+
+    <main id="mapWrap">
+      <div id="toolbar">
+        <input id="search" list="systemList" placeholder="Find system…" autocomplete="off">
+        <div class="seg" id="colorMode">
+          <button data-v="sec" class="on">Security</button>
+          <button data-v="sov">Sovereignty</button>
+        </div>
+        <div class="seg" id="layoutMode">
+          <button data-v="3d" class="on">Top-down</button>
+          <button data-v="2d">Schematic</button>
+        </div>
+        <label class="inline"><input type="checkbox" id="showKills" checked> Kills (1h)</label>
+        <label class="inline"><input type="checkbox" id="showBridges" checked> Jump bridges</label>
+        <label class="inline"><input type="checkbox" id="showHigh" checked> High-sec</label>
+        <button id="fit" class="ghost" title="Fit map (F)">Fit</button>
+      </div>
+      <canvas id="map"></canvas>
+      <div id="tooltip" hidden></div>
+      <div id="legend"></div>
+    </main>
+  </div>
+
+  <!-- Jump bridge editor -->
+  <div id="bridgeModal" class="modal" hidden>
+    <div class="modal-card">
+      <h3>Jump bridges</h3>
+      <p class="note">Paste your alliance's Ansiblex list, one bridge per line. Most formats work, for example
+        <code>1DQ1-A » 8WA-Z6</code>, <code>1DQ1-A &lt;-&gt; 8WA-Z6</code> or the full structure name
+        <code>1DQ1-A » 8WA-Z6 - Serenity</code>. Lines starting with # are ignored.</p>
+      <textarea id="bridgeText" spellcheck="false" placeholder="1DQ1-A » 8WA-Z6&#10;T5ZI-S » 4-HWWF"></textarea>
+      <div id="bridgeParse" class="note"></div>
+      <div class="btn-row">
+        <button id="bridgeSave" class="primary">Save</button>
+        <button id="bridgeCancel" class="ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading">
+    <div class="loading-card">
+      <img src="icon-192.png" alt="" class="loading-icon">
+      <h2 id="loadTitle">Loading New Eden…</h2>
+      <p id="loadMsg">Starting up</p>
+      <div class="bar"><div id="loadBar"></div></div>
+      <button id="retry" class="primary" hidden>Try again</button>
+    </div>
+  </div>
+
+  <datalist id="systemList"></datalist>
+
+  <script src="web-api.js"></script>
+  <script src="special-systems.js"></script>
+  <script src="gates.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

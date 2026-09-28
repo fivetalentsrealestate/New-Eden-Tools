@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#05070b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' https://images.evetech.net data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://esi.evetech.net; worker-src 'self'; manifest-src 'self'">
+  <title>EVE Router</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <button id="sheetHandle" class="sheet-handle" type="button"><span id="sheetLabel">Jump planner</span><span class="chev">▲</span></button>
+      <header class="brand">
+        <img src="icon-192.png" alt="" class="brand-icon">
+        <div>
+          <div class="brand-name">EVE Router</div>
+          <div class="brand-sub">New Eden map &amp; jump planner</div>
+        </div>
+      </header>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="jump">Jump planner</button>
+        <button class="tab" data-tab="sov">Sovereignty</button>
+        <button class="tab" data-tab="system">System</button>
+      </nav>
+
+      <!-- JUMP PLANNER -->
+      <section class="panel active" id="panel-jump">
+        <div class="field-row">
+          <label>Ship
+            <select id="ship"></select>
+          </label>
+          <label class="narrow">JDC
+            <select id="jdc">
+              <option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option>
+            </select>
+          </label>
+        </div>
+        <div class="range-readout">Range <strong id="rangeVal">7.00</strong> LY
+          <label class="inline"><input type="checkbox" id="customRangeOn"> custom</label>
+          <input type="number" id="customRange" min="0.5" max="20" step="0.05" value="7" disabled>
+        </div>
+
+        <label>From
+          <input id="from" list="systemList" placeholder="Start system" autocomplete="off">
+        </label>
+        <label>To
+          <input id="to" list="systemList" placeholder="Destination" autocomplete="off">
+        </label>
+        <div class="field-row">
+          <label>Prefer
+            <select id="mode">
+              <option value="jumps">Fewest jumps</option>
+              <option value="distance">Shortest distance (less fatigue)</option>
+            </select>
+          </label>
+        </div>
+        <label>Avoid systems
+          <div class="avoid-row">
+            <input id="avoidInput" list="systemList" placeholder="Add a system to avoid" autocomplete="off">
+            <button id="avoidAdd" class="ghost">Add</button>
+          </div>
+        </label>
+        <div id="avoidChips" class="chips"></div>
+
+        <div class="btn-row">
+          <button id="plan" class="primary">Plan route</button>
+          <button id="swap" class="ghost" title="Swap start and destination">⇅</button>
+          <button id="clearRoute" class="ghost">Clear</button>
+        </div>
+        <label class="inline"><input type="checkbox" id="showRange" checked> Highlight systems in range of start</label>
+
+        <div id="routeResult"></div>
+      </section>
+
+      <!-- SOVEREIGNTY -->
+      <section class="panel" id="panel-sov">
+        <div class="sov-status">
+          <span id="sovStatus">Not loaded</span>
+          <button id="sovRefresh" class="ghost small">Refresh</button>
+        </div>
+        <input id="sovFilter" placeholder="Filter alliances…" autocomplete="off">
+        <div id="sovList" class="sov-list"></div>
+      </section>
+
+      <!-- SYSTEM -->
+      <section class="panel" id="panel-system">
+        <div id="systemInfo" class="empty">Click a system on the map, or search for one above the map.</div>
+      </section>
+
+      <footer class="data-foot">
+        <span id="dataStatus"></span>
+        <button id="dataRefresh" class="ghost small" title="Re-download map data from CCP">Update map data</button>
+      </footer>
+    </aside>
+
+    <main id="mapWrap">
+      <div id="toolbar">
+        <input id="search" list="systemList" placeholder="Find system…" autocomplete="off">
+        <div class="seg" id="colorMode">
+          <button data-v="sec" class="on">Security</button>
+          <button data-v="sov">Sovereignty</button>
+        </div>
+        <div class="seg" id="layoutMode">
+          <button data-v="3d" class="on">Top-down</button>
+          <button data-v="2d">Schematic</button>
+        </div>
+        <label class="inline"><input type="checkbox" id="showGates" checked> Gates</label>
+        <label class="inline"><input type="checkbox" id="showHigh" checked> High-sec</label>
+        <button id="fit" class="ghost" title="Fit map (F)">Fit</button>
+      </div>
+      <canvas id="map"></canvas>
+      <div id="tooltip" hidden></div>
+      <div id="legend"></div>
+    </main>
+  </div>
+
+  <div id="loading">
+    <div class="loading-card">
+      <img src="icon-192.png" alt="" class="loading-icon">
+      <h2 id="loadTitle">Loading New Eden…</h2>
+      <p id="loadMsg">Starting up</p>
+      <div class="bar"><div id="loadBar"></div></div>
+      <button id="retry" class="primary" hidden>Try again</button>
+    </div>
+  </div>
+
+  <datalist id="systemList"></datalist>
+
+  <script src="web-api.js"></script>
+  <script src="planner.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+/* Extra styles for the gate planner (base styles live in style.css) */
+:root { --accent: #4fc3f7; --bridge: #4fd18b; }
+
+.stops { display: flex; flex-direction: column; gap: 6px; position: relative; }
+.stop-row { display: flex; align-items: center; gap: 8px; }
+.stop-row input { flex: 1; }
+.stop-dot {
+  flex: 0 0 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 11px; font-weight: 700; color: #05070b;
+}
+.stop-dot.start { background: var(--ok); }
+.stop-dot.end { background: var(--danger); }
+.stop-dot.wp { background: var(--route); }
+.stop-row.add .stop-dot { background: transparent; border: 1px dashed #4a5a73; color: var(--muted); }
+.wp-row .name { flex: 1; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
+.icon-btn { padding: 5px 9px; }
+.wp-row button { padding: 3px 7px; }
+
+.ap { background: #0a0f16; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+.ap-title { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
+.ap label.radio, .ap label.check { flex-direction: row; align-items: flex-start; gap: 8px; color: var(--text); font-size: 12.5px; cursor: pointer; line-height: 1.35; }
+.ap input[type=radio], .ap input[type=checkbox] { margin: 2px 0 0; accent-color: var(--accent); width: auto; }
+.penalty { display: flex; align-items: center; gap: 10px; padding-left: 22px; color: var(--muted); font-size: 12px; }
+.penalty input[type=range] { flex: 1; accent-color: var(--accent); padding: 0; border: 0; background: transparent; }
+.penalty strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.penalty.disabled { opacity: .4; }
+.sub { padding-left: 22px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.sub input[type=number] { width: 56px; padding: 3px 6px; }
+.sub .avoid-row { width: 100%; }
+.inline-btn { margin-left: auto; }
+
+/* Route output */
+.sec-strip { display: flex; height: 8px; border-radius: 999px; overflow: hidden; margin: 2px 0 4px; }
+.sec-strip span { flex: 1; }
+.route-list { display: flex; flex-direction: column; }
+.hop { display: grid; grid-template-columns: 26px 6px 1fr auto; gap: 8px; align-items: center; padding: 4px 4px; border-radius: 6px; cursor: pointer; }
+.hop:hover { background: #101826; }
+.hop .num { color: var(--muted); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+.hop .bar { width: 6px; height: 22px; border-radius: 3px; }
+.hop .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hop .nm small { color: var(--muted); margin-left: 6px; }
+.hop .tags { display: flex; gap: 4px; }
+.tag { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.tag.pod { color: #ff9aa4; border-color: #5a2630; background: #2a1519; }
+.tag.kill { color: #ffcf8a; border-color: #5a4326; background: #2a2015; }
+.tag.jb { color: var(--bridge); border-color: #1f5a3c; background: #0f2a1d; }
+.tag.trig { color: #ff7b72; border-color: #5a2626; }
+.tag.eden { color: #7fb8ff; border-color: #26405a; }
+.stop-line { display: flex; align-items: center; gap: 8px; margin: 6px 0; padding: 6px 8px; border-radius: 6px; background: #1d1a0d; border: 1px solid #4d4420; color: var(--route); font-size: 12px; }
+.leg-head { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin: 8px 0 2px; }
+
+/* Modal */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 20; }
+.modal[hidden] { display: none; }
+.modal-card { width: min(560px, 92vw); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.modal-card h3 { margin: 0; font-weight: 600; }
+.modal-card textarea { min-height: 220px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: 12px/1.5 Consolas, "Cascadia Mono", monospace; resize: vertical; }
+code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+code { white-space: nowrap; }

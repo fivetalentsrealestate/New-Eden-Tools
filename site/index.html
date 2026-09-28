@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#05070b">
+  <meta name="description" content="Free EVE Online tools that run in your browser, on your phone, or on Windows: find the nearest market orders, plan capital jumps, and plan stargate routes with in-game autopilot options.">
+  <meta property="og:title" content="New Eden Tools">
+  <meta property="og:description" content="Market Finder, jump drive planner and stargate route planner for EVE Online.">
+  <link rel="icon" href="router/icon-192.png">
+  <title>New Eden Tools</title>
+  <style>
+    :root {
+      --bg: #05070b; --panel: #0c1119; --panel-2: #121925; --line: #1f2a3a;
+      --text: #d8e1ee; --muted: #8391a8; --accent: #4fc3f7; --gold: #ffd166;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.55 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+      background-image:
+        radial-gradient(1200px 600px at 70% -10%, rgba(79,195,247,.10), transparent 60%),
+        radial-gradient(900px 500px at 0% 20%, rgba(143,123,255,.08), transparent 60%);
+      min-height: 100vh;
+    }
+    a { color: var(--accent); }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+    header.hero { padding: calc(56px + env(safe-area-inset-top)) 0 28px; }
+    .eyebrow { color: var(--gold); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
+    h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.05; margin: 10px 0 14px; font-weight: 700; letter-spacing: -.01em; }
+    .lede { color: var(--muted); font-size: clamp(16px, 2.2vw, 19px); max-width: 640px; margin: 0; }
+
+    .apps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 34px 0 20px; }
+    .card {
+      background: linear-gradient(180deg, var(--panel-2), var(--panel));
+      border: 1px solid var(--line); border-radius: 16px; padding: 22px;
+      display: flex; flex-direction: column; gap: 12px;
+      transition: border-color .2s, transform .2s;
+    }
+    .card:hover { border-color: #33455f; transform: translateY(-2px); }
+    .card-top { display: flex; align-items: center; gap: 14px; }
+    .card img { width: 58px; height: 58px; border-radius: 14px; flex: 0 0 auto; }
+    .card h2 { font-size: 20px; margin: 0; font-weight: 600; }
+    .card .tag { color: var(--muted); font-size: 13px; }
+    .card p { margin: 0; color: #b7c3d5; font-size: 15px; }
+    .card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+    .card ul li { margin: 2px 0; }
+    .open {
+      margin-top: auto; display: inline-flex; justify-content: center; align-items: center; gap: 8px;
+      background: var(--accent); color: #03141f; text-decoration: none; font-weight: 700;
+      border-radius: 10px; padding: 12px 16px; font-size: 15px;
+    }
+    .open:hover { filter: brightness(1.08); }
+
+    section.info { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 10px 0 40px; }
+    .box { border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; background: rgba(12,17,25,.7); }
+    .box h3 { margin: 0 0 8px; font-size: 17px; font-weight: 600; }
+    .box p, .box li { color: #b7c3d5; font-size: 15px; }
+    .box ol { padding-left: 20px; margin: 8px 0 0; }
+    .box li { margin: 4px 0; }
+    code { background: var(--panel-2); border: 1px solid var(--line); padding: 1px 6px; border-radius: 5px; font-size: 13px; }
+
+    footer { border-top: 1px solid var(--line); padding: 22px 0 calc(30px + env(safe-area-inset-bottom)); color: var(--muted); font-size: 13px; }
+    footer .row { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+
+    @media (max-width: 900px) {
+      .apps { grid-template-columns: 1fr; }
+      section.info { grid-template-columns: 1fr; }
+      header.hero { padding-top: calc(36px + env(safe-area-inset-top)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="eyebrow">Free tools for EVE Online</div>
+      <h1>New Eden Tools</h1>
+      <p class="lede">Find the nearest market orders, plan capital jumps, and plan stargate routes with the same settings as the in-game autopilot. They run in your browser and on your phone, and you can install them on Windows. No login.</p>
+    </header>
+
+    <main>
+      <div class="apps">
+        <article class="card">
+          <div class="card-top">
+            <img src="market/icon-192.png" alt="">
+            <div><h2>Market Finder</h2><div class="tag">Where can I buy or sell this?</div></div>
+          </div>
+          <p>Search any item and see every buy and sell order across New Eden, sorted by price and by jumps from where you are.</p>
+          <ul>
+            <li>Live orders from every region</li>
+            <li>Jump count from your system, shortest or high-sec only</li>
+            <li>Quickbar for items you check often</li>
+          </ul>
+          <a class="open" href="market/">Open Market Finder →</a>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <img src="router/icon-192.png" alt="">
+            <div><h2>EVE Router</h2><div class="tag">Jump drive planner &amp; sov map</div></div>
+          </div>
+          <p>An interactive map of New Eden with live sovereignty, and a capital jump planner that respects cyno rules.</p>
+          <ul>
+            <li>Carriers, dreads, FAX, supers, titans, Black Ops, JFs, Rorquals</li>
+            <li>Fatigue and jump timer estimates for every leg</li>
+            <li>Alliance territory with logos and system counts</li>
+          </ul>
+          <a class="open" href="router/">Open EVE Router →</a>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <img src="gates/icon-192.png" alt="">
+            <div><h2>Gate Planner</h2><div class="tag">Stargate routes, autopilot style</div></div>
+          </div>
+          <p>Plan gate routes with the in-game route settings: Shorter, Safer, or Less Secure, plus the security penalty slider.</p>
+          <ul>
+            <li>Avoid pod-kill hotspots, Triglavian &amp; EDENCOM systems</li>
+            <li>Your jump bridges, waypoints and avoidance list</li>
+            <li>Live kills for the last hour along the route</li>
+          </ul>
+          <a class="open" href="gates/">Open Gate Planner →</a>
+        </article>
+      </div>
+
+      <section class="info">
+        <div class="box">
+          <h3>📱 Put them on your phone</h3>
+          <p>Open a tool, then add it to your home screen. It opens full screen like a normal app and remembers your settings.</p>
+          <ol>
+            <li><strong>iPhone / iPad (Safari):</strong> tap Share, then <em>Add to Home Screen</em>.</li>
+            <li><strong>Android (Chrome):</strong> tap ⋮, then <em>Install app</em> or <em>Add to Home screen</em>.</li>
+          </ol>
+          <p>On the maps, drag to pan, pinch to zoom, and tap a system for details. Swipe up the panel at the bottom for the planner.</p>
+        </div>
+        <div class="box">
+          <h3>🖥️ Windows desktop apps</h3>
+          <p>EVE Router and Gate Planner can also run as Windows apps with their own desktop icons. Download the code from <a href="https://github.com/fivetalentsrealestate/New-Eden-Tools">GitHub</a>, open an app's folder (e.g. <code>apps/eve-router</code>), and run:</p>
+          <p><code>npm install</code> then <code>npm run dist</code></p>
+          <p>That builds an installer that puts the icon on your desktop. Each app's README has the details.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="row">
+        <span>Live data from CCP's public ESI API. Map data from the EVE Static Data Export, refreshed weekly.</span>
+        <a href="https://github.com/fivetalentsrealestate/New-Eden-Tools">Source on GitHub</a>
+      </div>
+      <p>Not affiliated with CCP Games. EVE Online and all related names are trademarks of CCP hf.</p>
+    </footer>
+  </div>
+</body>
+</html>
