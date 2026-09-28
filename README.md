@@ -21,7 +21,9 @@ It opens full-screen with its own icon and remembers your settings. On the maps 
 
 ## On Windows (desktop app with a desktop icon)
 
-EVE Jump Planner and Gate Planner can also be installed as desktop apps. You'll need [Node.js LTS](https://nodejs.org).
+**[⬇ Download the installers](https://github.com/fivetalentsrealestate/New-Eden-Tools/releases/latest)**: pick *EVE Jump Planner Setup* or *EVE Gate Planner Setup* under **Assets** and double-click it. Windows may say "Windows protected your PC", because the installer isn't code-signed. Click **More info → Run anyway**.
+
+To build them yourself instead, you'll need [Node.js LTS](https://nodejs.org):
 
 ```
 cd apps/eve-jump-planner    # or apps/eve-gate-planner
@@ -31,6 +33,8 @@ npm run dist                # build an installer with a desktop icon
 ```
 
 Full instructions: [EVE Jump Planner](apps/eve-jump-planner/README.md) · [Gate Planner](apps/eve-gate-planner/README.md)
+
+To publish new installers, push a version tag (e.g. `git tag v1.0.1 && git push origin v1.0.1`). GitHub builds both on Windows and attaches them to a new release.
 
 ## How it's built
 

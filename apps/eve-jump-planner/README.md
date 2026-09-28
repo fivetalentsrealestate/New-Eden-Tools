@@ -4,6 +4,8 @@
 
 > **Just want to use it?** Open it in your browser or on your phone at the New Eden Tools website. See the main [README](../../README.md). This page covers the Windows desktop version.
 
+> **Easiest install:** download *EVE Jump Planner Setup* from the [Releases page](https://github.com/fivetalentsrealestate/New-Eden-Tools/releases/latest) and double-click it. The steps below are only needed if you want to build it yourself.
+
 A capital jump planner and New Eden map for EVE Online, here as a Windows desktop app:
 
 - **Interactive star map**: every known-space system and stargate. You can pan, zoom, search, hover for details and click a system for its info. It has two layouts: *Top-down* (true 3D positions seen from above) and *Schematic* (CCP's 2D map layout).

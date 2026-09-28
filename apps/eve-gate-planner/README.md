@@ -2,6 +2,8 @@
 
 > **Just want to use it?** Open it in your browser or on your phone at the New Eden Tools website. See the main [README](../../README.md). This page covers the Windows desktop version.
 
+> **Easiest install:** download *EVE Gate Planner Setup* from the [Releases page](https://github.com/fivetalentsrealestate/New-Eden-Tools/releases/latest) and double-click it. The steps below are only needed if you want to build it yourself.
+
 A local Windows app for planning **stargate** travel in EVE Online. It uses the same route settings as the in-game autopilot:
 
 | In-game setting | What the app does |

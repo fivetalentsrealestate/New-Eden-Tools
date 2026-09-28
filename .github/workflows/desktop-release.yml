@@ -1,0 +1,74 @@
+name: Build Windows installers
+
+# Builds the EVE Jump Planner and EVE Gate Planner installers on a Windows machine and
+# attaches them to a GitHub Release, so anyone can download them from the Releases page.
+# Runs when a version tag like v1.0.1 is pushed, or on demand from the Actions tab.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to create or update (e.g. v1.0.1)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        app: [eve-jump-planner, eve-gate-planner]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Test
+        run: npm test
+
+      - name: Build installer
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}
+          path: apps/${{ matrix.app }}/dist/*Setup*.exe
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: New Eden Tools ${{ github.event.inputs.tag || github.ref_name }}
+          files: installers/*.exe
+          body: |
+            Windows desktop installers for **EVE Jump Planner** and **EVE Gate Planner**.
+
+            1. Download the `Setup` file for the app you want (under **Assets** below).
+            2. Double-click it. Windows may show "Windows protected your PC", because the
+               installer isn't code-signed. Click **More info → Run anyway**.
+            3. Pick where to install. You'll get a desktop icon and a Start menu entry.
+
+            Prefer not to install anything? All three tools also run in your browser and on your phone:
+            https://fivetalentsrealestate.github.io/New-Eden-Tools/
