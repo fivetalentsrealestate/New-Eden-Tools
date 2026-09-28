@@ -2,15 +2,18 @@ name: Build Windows installers
 
 # Builds the EVE Jump Planner and EVE Gate Planner installers on a Windows machine and
 # attaches them to a GitHub Release, so anyone can download them from the Releases page.
-# Runs when a version tag like v1.0.1 is pushed, or on demand from the Actions tab.
+# Runs whenever the desktop apps change on main (the release is named after the app version
+# in apps/eve-jump-planner/package.json, so bump that to publish a new release), when a
+# version tag like v1.0.1 is pushed, or on demand from the Actions tab.
 on:
   push:
+    branches: [main]
     tags: ['v*']
+    paths:
+      - 'apps/eve-jump-planner/**'
+      - 'apps/eve-gate-planner/**'
+      - '.github/workflows/desktop-release.yml'
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Release tag to create or update (e.g. v1.0.1)'
-        required: true
 
 permissions:
   contents: write
@@ -52,6 +55,17 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the release tag
+        id: tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v$(node -p "require('./apps/eve-jump-planner/package.json').version")" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/download-artifact@v4
         with:
           path: installers
@@ -59,8 +73,10 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          name: New Eden Tools ${{ github.event.inputs.tag || github.ref_name }}
+          tag_name: ${{ steps.tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: New Eden Tools ${{ steps.tag.outputs.tag }}
+          make_latest: true
           files: installers/*.exe
           body: |
             Windows desktop installers for **EVE Jump Planner** and **EVE Gate Planner**.

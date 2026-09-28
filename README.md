@@ -34,7 +34,7 @@ npm run dist                # build an installer with a desktop icon
 
 Full instructions: [EVE Jump Planner](apps/eve-jump-planner/README.md) · [Gate Planner](apps/eve-gate-planner/README.md)
 
-To publish new installers, push a version tag (e.g. `git tag v1.0.1 && git push origin v1.0.1`). GitHub builds both on Windows and attaches them to a new release.
+New installers are built automatically. Whenever either desktop app changes on `main`, GitHub builds both on Windows and attaches them to the release named after the version in `apps/eve-jump-planner/package.json`. Bump that version to publish a new release instead of updating the current one.
 
 ## How it's built
 
