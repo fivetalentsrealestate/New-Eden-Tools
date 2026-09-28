@@ -1,8 +1,8 @@
 {
-  "name": "eve-router-desktop",
-  "productName": "EVE Router",
+  "name": "eve-jump-planner",
+  "productName": "EVE Jump Planner",
   "version": "1.0.0",
-  "description": "Local desktop map of New Eden with sovereignty overlay and a capital jump planner.",
+  "description": "EVE Online capital jump planner with fuel calculator and New Eden sovereignty map.",
   "main": "main.js",
   "author": "Dale Smith",
   "license": "MIT",
@@ -20,8 +20,8 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.fivetalents.everouter",
-    "productName": "EVE Router",
+    "appId": "com.fivetalents.evejumpplanner",
+    "productName": "EVE Jump Planner",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -44,7 +44,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "EVE Router"
+      "shortcutName": "EVE Jump Planner"
     }
   }
 }

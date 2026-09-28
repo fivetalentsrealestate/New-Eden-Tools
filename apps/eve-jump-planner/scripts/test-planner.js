@@ -85,4 +85,23 @@ f = P.fatigueFor(Array(6).fill({ ly: 7 }), 0);
 assert.strictEqual(f.finalFatigue, 300);
 assert.strictEqual(f.steps[5].cooldown, 30);
 
+// Fuel: CCP formula ceil(LY × fuel/LY × (1 − 10%×JFC) × (1 − 10%×ship skill))
+const dread = P.SHIPS.find((s) => s.id === 'dread');
+assert.strictEqual(P.fuelForJump(5, dread, 0, 0), 15000);
+assert.strictEqual(P.fuelForJump(5, dread, 5, 0), 7500, 'JFC V halves fuel');
+assert.strictEqual(P.fuelForJump(5, dread, 4, 5), 9000, 'ship skill ignored for hulls without a fuel skill');
+assert.strictEqual(P.fuelForJump(4.33, dread, 3, 0), 9093, 'rounded up to whole isotopes');
+const nomad = P.fromHull({ id: 28846, n: 'Nomad', g: 'Jump Freighter', fuel: 8200, fuelType: 16272, range: 5 });
+assert.strictEqual(P.shipRange(nomad, 5), 10);
+assert.strictEqual(P.fuelSkill(nomad), 'Jump Freighters');
+assert.strictEqual(P.fuelForJump(10, nomad, 5, 5), 20500, 'Nomad 10 LY, JFC V + Jump Freighters V = 25%');
+assert.strictEqual(P.fatigueReduction(nomad), 0.9);
+assert.strictEqual(P.fatigueReduction(P.fromHull({ id: 1, n: 'Sin', g: 'Black Ops', fuel: 700, fuelType: 17887, range: 4 })), 0.75);
+assert.strictEqual(P.fatigueReduction(dread), 0);
+
+// Ship data is carried through when present
+const u2 = buildUniverse({ ...raw, ships: [{ id: 1, n: 'X', g: 'Carrier', fuel: 3000, fuelType: 2, range: 3.5 }], fuelTypes: { 2: { n: 'Helium Isotopes', vol: 0.03 } } });
+assert.strictEqual(u2.ships.length, 1);
+assert.strictEqual(u2.fuelTypes[2].n, 'Helium Isotopes');
+
 console.log('All planner tests passed ✔');

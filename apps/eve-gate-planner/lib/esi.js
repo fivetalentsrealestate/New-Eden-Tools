@@ -6,7 +6,7 @@ const path = require('path');
 
 const BASE = 'https://esi.evetech.net';
 const HEADERS = {
-  'User-Agent': 'EVE Router Desktop (personal map tool)',
+  'User-Agent': 'New Eden Tools (github.com/fivetalentsrealestate/New-Eden-Tools)',
   'X-Compatibility-Date': '2025-12-16',
   'Accept': 'application/json'
 };
@@ -95,4 +95,23 @@ function loadCachedKills(dataDir) {
   try { return JSON.parse(fs.readFileSync(path.join(dataDir, 'kills.json'), 'utf8')); } catch (e) { return null; }
 }
 
-module.exports = { fetchSovereignty, loadCachedSov, fetchKills, loadCachedKills };
+// Average market prices for the given item types (CCP's /markets/prices, updated about daily).
+async function fetchPrices(dataDir, typeIds) {
+  const want = new Set((typeIds || []).map(Number));
+  const rows = await getJson(['/markets/prices', '/latest/markets/prices/']);
+  const prices = {};
+  for (const r of rows) if (want.has(r.type_id)) prices[r.type_id] = r.average_price || r.adjusted_price || 0;
+  const result = { fetchedAt: new Date().toISOString(), prices };
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(path.join(dataDir, 'prices.json'), JSON.stringify(result));
+  return result;
+}
+
+function loadCachedPrices(dataDir, typeIds) {
+  try {
+    const c = JSON.parse(fs.readFileSync(path.join(dataDir, 'prices.json'), 'utf8'));
+    return (typeIds || []).every((id) => id in c.prices) ? c : null;
+  } catch (e) { return null; }
+}
+
+module.exports = { fetchSovereignty, loadCachedSov, fetchKills, loadCachedKills, fetchPrices, loadCachedPrices };

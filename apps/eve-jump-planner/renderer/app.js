@@ -5,6 +5,10 @@
 const P = window.Planner;
 const state = {
   systems: [],
+  ships: P.SHIPS,
+  universeShips: [],
+  fuelTypes: {},
+  prices: null,
   byId: new Map(),
   byName: new Map(),
   adj: new Map(),
@@ -74,6 +78,12 @@ function fmtMin(m) {
   if (m < 60) return `${Math.round(m)}m`;
   const h = Math.floor(m / 60), r = Math.round(m % 60);
   return r ? `${h}h ${r}m` : `${h}h`;
+}
+function fmtIsk(v) {
+  if (v >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+  if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return (v / 1e3).toFixed(0) + 'K';
+  return Math.round(v).toString();
 }
 function findSystem(text) {
   if (!text) return null;
@@ -155,9 +165,13 @@ function ingest(u) {
   });
   $('systemList').replaceChildren(frag);
 
+  state.universeShips = u.ships || [];
+  state.fuelTypes = u.fuelTypes || {};
+  buildShipOptions();
   applyLayout();
   fit();
   restoreForm();
+  loadPrices();
 }
 
 function applyLayout() {
@@ -563,15 +577,60 @@ function renderSystem(sys) {
 }
 
 // ---------- jump planner ----------
-function currentShip() { return P.SHIPS.find((s) => s.id === $('ship').value) || P.SHIPS[0]; }
+// Ships come from CCP's data (every jump-capable hull with its exact fuel and range);
+// older data without it falls back to generic ship classes.
+function buildShipOptions() {
+  const hulls = (state.universeShips || []).map(P.fromHull);
+  state.ships = hulls.length ? hulls : P.SHIPS;
+  const sel = $('ship');
+  sel.innerHTML = '';
+  const groups = new Map();
+  for (const sh of state.ships) {
+    if (!groups.has(sh.group)) groups.set(sh.group, []);
+    groups.get(sh.group).push(sh);
+  }
+  for (const [g, list] of groups) {
+    const og = document.createElement('optgroup');
+    og.label = g;
+    for (const sh of list) {
+      const o = document.createElement('option');
+      o.value = sh.id;
+      o.textContent = `${sh.name} (${sh.max % 1 ? sh.max.toFixed(1) : sh.max} LY)`;
+      og.appendChild(o);
+    }
+    sel.appendChild(og);
+  }
+  const firstCarrier = state.ships.find((sh) => sh.group === 'Carrier');
+  if (firstCarrier) sel.value = firstCarrier.id;
+}
+function currentShip() { return state.ships.find((s) => s.id === $('ship').value) || state.ships[0]; }
 function currentRange() {
   if ($('customRangeOn').checked) return Math.max(0.1, parseFloat($('customRange').value) || 0);
   return P.shipRange(currentShip(), +$('jdc').value);
+}
+function fuelName(ship) {
+  const t = ship.fuelType && state.fuelTypes[ship.fuelType];
+  return t ? t.n : 'Isotopes';
+}
+function isoIcon(ship, cls) {
+  return ship.fuelType ? `<img class="${cls}" src="https://images.evetech.net/types/${ship.fuelType}/icon?size=64" alt="">` : '';
 }
 function updateRangeReadout() {
   const r = currentRange();
   $('rangeVal').textContent = r.toFixed(2);
   if (!$('customRangeOn').checked) $('customRange').value = r.toFixed(2);
+  const ship = currentShip();
+  const skill = P.fuelSkill(ship);
+  $('shipSkillWrap').hidden = !skill;
+  if (skill) $('shipSkillName').textContent = skill;
+  const per = P.fuelPerLy(ship, +$('jfc').value, +$('shipSkill').value);
+  $('fuelReadout').innerHTML = `${isoIcon(ship, 'iso')}<span>${esc(fuelName(ship))}: <strong>${Math.round(per).toLocaleString()}</strong> per LY` +
+    (per < ship.fuel ? ` <span class="note">(${ship.fuel.toLocaleString()} base)</span>` : '') + '</span>';
+  hideBrokenIcons($('fuelReadout'));
+}
+// Hide isotope icons if CCP's image server can't be reached
+function hideBrokenIcons(el) {
+  el.querySelectorAll('img').forEach((img) => img.addEventListener('error', () => { img.style.display = 'none'; }, { once: true }));
 }
 function updateRangeSet() {
   const start = findSystem($('from').value);
@@ -581,18 +640,29 @@ function onFormChange() {
   updateRangeReadout();
   updateRangeSet();
   store('form', {
-    ship: $('ship').value, jdc: $('jdc').value, mode: $('mode').value,
+    ship: $('ship').value, jdc: $('jdc').value, jfc: $('jfc').value, shipSkill: $('shipSkill').value, mode: $('mode').value,
     from: $('from').value, to: $('to').value,
     customOn: $('customRangeOn').checked, custom: $('customRange').value,
     avoid: [...state.avoid]
   });
+  if (state.route && state.route.legs) renderRoute(); // fuel numbers follow the skill settings
   draw();
 }
 function restoreForm() {
   const f = recall('form', null);
   if (!f) { onFormChange(); return; }
-  if (f.ship) $('ship').value = f.ship;
+  if (f.ship) {
+    if (state.ships.some((s) => s.id === f.ship)) $('ship').value = f.ship;
+    else {
+      // saved from the older class list (e.g. "carrier"): pick the first hull of that class
+      const cls = P.SHIPS.find((s) => s.id === f.ship);
+      const hull = cls && state.ships.find((s) => s.group === cls.group);
+      if (hull) $('ship').value = hull.id;
+    }
+  }
   if (f.jdc) $('jdc').value = f.jdc;
+  if (f.jfc) $('jfc').value = f.jfc;
+  if (f.shipSkill) $('shipSkill').value = f.shipSkill;
   if (f.mode) $('mode').value = f.mode;
   $('from').value = f.from || '';
   $('to').value = f.to || '';
@@ -604,12 +674,16 @@ function restoreForm() {
   onFormChange();
 }
 
-P.SHIPS.forEach((s) => {
-  const o = document.createElement('option');
-  o.value = s.id; o.textContent = `${s.name} (${s.max} LY max)`;
-  $('ship').appendChild(o);
-});
-['ship', 'jdc', 'mode', 'customRange'].forEach((id) => $(id).addEventListener('change', onFormChange));
+async function loadPrices() {
+  const ids = Object.keys(state.fuelTypes).map(Number);
+  if (!ids.length || !window.api.getPrices) return;
+  try {
+    state.prices = (await window.api.getPrices(ids)).prices || {};
+    if (state.route && state.route.legs) renderRoute();
+  } catch (e) { /* prices are optional */ }
+}
+
+['ship', 'jdc', 'jfc', 'shipSkill', 'mode', 'customRange'].forEach((id) => $(id).addEventListener('change', onFormChange));
 $('customRange').addEventListener('input', onFormChange);
 $('customRangeOn').addEventListener('change', () => { $('customRange').disabled = !$('customRangeOn').checked; onFormChange(); });
 ['from', 'to'].forEach((id) => $(id).addEventListener('change', () => {
@@ -647,8 +721,9 @@ function plan() {
   }
   const ship = currentShip();
   state.route = P.planRoute(state.systems, from.id, to.id, {
-    range: currentRange(), mode: $('mode').value, avoid: state.avoid, fatigueReduction: ship.fatigue
+    range: currentRange(), mode: $('mode').value, avoid: state.avoid, fatigueReduction: P.fatigueReduction(ship)
   });
+  if (state.route.legs) state.route.ship = ship;
   renderRoute();
   if (state.route.legs) fitToRoute();
   draw();
@@ -672,27 +747,42 @@ function renderRoute() {
   if (r.error) { el.innerHTML = `<div class="error">${esc(r.error)}</div>`; return; }
   if (!r.legs.length) { el.innerHTML = '<div class="note">Start and destination are the same system.</div>'; return; }
   const f = r.fatigue;
+  // Fuel is recomputed from the current skill settings each time the route is drawn
+  const ship = r.ship || currentShip();
+  const jfc = +$('jfc').value, sk = +$('shipSkill').value;
+  const legFuel = r.legs.map((l) => P.fuelForJump(l.ly, ship, jfc, sk));
+  const totalFuel = legFuel.reduce((a, b) => a + b, 0);
+  const ft = ship.fuelType && state.fuelTypes[ship.fuelType];
+  const price = ship.fuelType && state.prices ? state.prices[ship.fuelType] : 0;
+  const fuelSub = [
+    ft && ft.vol ? `${(totalFuel * ft.vol).toLocaleString(undefined, { maximumFractionDigits: 0 })} m³` : '',
+    price ? `≈ ${fmtIsk(totalFuel * price)} ISK` : ''
+  ].filter(Boolean).join(' · ');
   el.innerHTML = `
     <div class="route-summary">
+      <div class="stat fuel">${isoIcon(ship, '')}<div><div class="k">Fuel needed · ${esc(ship.name)}</div>
+        <div class="v">${totalFuel.toLocaleString()} ${esc(fuelName(ship))}</div>${fuelSub ? `<div class="sub">${fuelSub}</div>` : ''}</div></div>
       <div class="stat"><div class="k">Jumps</div><div class="v">${r.legs.length}</div></div>
       <div class="stat"><div class="k">Total distance</div><div class="v">${r.totalLy.toFixed(2)} LY</div></div>
       <div class="stat"><div class="k">Fatigue on arrival</div><div class="v">${fmtMin(f.finalFatigue)}</div></div>
       <div class="stat"><div class="k">Waiting on timers</div><div class="v">${fmtMin(f.travelMinutes)}</div></div>
     </div>
     <table class="route-table">
-      <thead><tr><th>#</th><th>System</th><th>LY</th><th>Fatigue</th><th>Timer</th></tr></thead>
+      <thead><tr><th>#</th><th>System</th><th>LY</th><th>Fuel</th><th>Fatigue</th><th>Timer</th></tr></thead>
       <tbody>
-        <tr data-sys="${r.legs[0].from.id}"><td>S</td><td>${esc(r.legs[0].from.n)} ${secHtml(r.legs[0].from.s)}<span class="sov">${esc(sovLabel(r.legs[0].from) || state.regions[r.legs[0].from.r] || '')}</span></td><td></td><td></td><td></td></tr>
+        <tr data-sys="${r.legs[0].from.id}"><td>S</td><td>${esc(r.legs[0].from.n)} ${secHtml(r.legs[0].from.s)}<span class="sov">${esc(sovLabel(r.legs[0].from) || state.regions[r.legs[0].from.r] || '')}</span></td><td></td><td></td><td></td><td></td></tr>
         ${r.legs.map((l, i) => `<tr data-sys="${l.to.id}">
           <td>${i + 1}</td>
           <td>${esc(l.to.n)} ${secHtml(l.to.s)}<span class="sov">${esc(sovLabel(l.to) || state.regions[l.to.r] || '')}</span></td>
           <td>${l.ly.toFixed(2)}</td>
+          <td>${legFuel[i].toLocaleString()}</td>
           <td>${fmtMin(f.steps[i].fatigue)}</td>
           <td>${fmtMin(f.steps[i].cooldown)}</td>
         </tr>`).join('')}
       </tbody>
     </table>
-    <p class="note">Fatigue assumes you start fresh and jump as soon as each activation timer ends. Estimates only — check in game before committing a fleet.</p>`;
+    <p class="note">Fuel uses the ship's fuel per light-year from CCP's data, less 10% per level of Jump Fuel Conservation${P.fuelSkill(ship) ? ` and of ${esc(P.fuelSkill(ship))}` : ''}${price ? ', priced at the average market price' : ''}. Fitted modules that change fuel use aren't included. Fatigue assumes you start fresh and jump as soon as each activation timer ends. Estimates only: check in game before committing a fleet.</p>`;
+  hideBrokenIcons(el);
   el.querySelectorAll('tr[data-sys]').forEach((tr) => {
     const s = state.byId.get(+tr.dataset.sys);
     tr.addEventListener('mouseenter', () => { state.hover = s; draw(); });

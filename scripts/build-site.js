@@ -1,7 +1,8 @@
 // Assembles the public website in _site/:
 //   /            landing page (site/)
 //   /market/     New Eden Market Finder
-//   /router/     EVE Router (jump drive planner)
+//   /jump/       EVE Jump Planner (jump drives, fuel, sovereignty)
+//   /router/     redirect to /jump/ (the app's old name was EVE Router)
 //   /gates/      EVE Gate Planner (stargate routes)
 //   /data/       universe.json built from CCP's Static Data Export
 //
@@ -12,7 +13,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { buildFromSde } = require('../apps/eve-router/lib/sde');
+const { buildFromSde } = require('../apps/eve-jump-planner/lib/sde');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, '_site');
@@ -33,7 +34,7 @@ async function main() {
   fs.rmSync(OUT, { recursive: true, force: true });
   copyDir(path.join(ROOT, 'site'), OUT);
   copyDir(path.join(ROOT, 'apps/market-finder'), path.join(OUT, 'market'));
-  copyDir(path.join(ROOT, 'apps/eve-router/renderer'), path.join(OUT, 'router'));
+  copyDir(path.join(ROOT, 'apps/eve-jump-planner/renderer'), path.join(OUT, 'jump'));
   copyDir(path.join(ROOT, 'apps/eve-gate-planner/renderer'), path.join(OUT, 'gates'));
   fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
 
@@ -51,8 +52,9 @@ async function main() {
     });
     fs.copyFileSync(path.join(tmp, 'universe.json'), path.join(dataDir, 'universe.json'));
     fs.rmSync(tmp, { recursive: true, force: true });
-    console.log(`Map data: ${u.systems.length} systems, ${u.jumps.length} stargate connections`);
+    console.log(`Map data: ${u.systems.length} systems, ${u.jumps.length} stargate connections, ${(u.ships || []).length} jump-capable ships`);
     if (u.systems.length < 5000) throw new Error('Map data looks incomplete — refusing to publish it.');
+    if (!u.ships || u.ships.length < 20) throw new Error('Jump-capable ship data missing — refusing to publish it.');
   }
   const kb = (fs.statSync(path.join(dataDir, 'universe.json')).size / 1024).toFixed(0);
   console.log(`Site built in _site/ (map data ${kb} KB)`);

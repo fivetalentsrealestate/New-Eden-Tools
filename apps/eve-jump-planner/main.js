@@ -1,9 +1,9 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, clipboard } = require('electron');
 const path = require('path');
 const { buildFromSde, loadCached } = require('./lib/sde');
-const { fetchSovereignty, loadCachedSov } = require('./lib/esi');
+const { fetchSovereignty, loadCachedSov, fetchPrices, loadCachedPrices } = require('./lib/esi');
 
 const dataDir = () => path.join(app.getPath('userData'), 'data');
 let win;
@@ -15,7 +15,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#05070b',
-    title: 'EVE Router',
+    title: 'EVE Jump Planner',
     icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
@@ -27,7 +27,7 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  // Open outside links (e.g. alliance pages) in the normal browser
+  // Open outside links (e.g. Dotlan, zKillboard) in the normal browser
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) shell.openExternal(url);
     return { action: 'deny' };
@@ -38,7 +38,8 @@ const progress = (p) => win && !win.isDestroyed() && win.webContents.send('progr
 
 ipcMain.handle('universe:get', async (_e, { refresh } = {}) => {
   if (!refresh) {
-    const cached = loadCached(dataDir());
+    // Needs the per-ship fuel data; older downloads without it are rebuilt once.
+    const cached = loadCached(dataDir(), { needShips: true });
     if (cached) return cached;
   }
   return buildFromSde(dataDir(), progress);
@@ -56,9 +57,22 @@ ipcMain.handle('sov:get', async (_e, { refresh } = {}) => {
   }
 });
 
+ipcMain.handle('prices:get', async (_e, { typeIds, refresh } = {}) => {
+  const cached = loadCachedPrices(dataDir(), typeIds);
+  const stale = !cached || Date.now() - new Date(cached.fetchedAt).getTime() > 6 * 60 * 60 * 1000;
+  if (!refresh && !stale) return cached;
+  try {
+    return await fetchPrices(dataDir(), typeIds);
+  } catch (e) {
+    if (cached) return { ...cached, offline: true };
+    throw e;
+  }
+});
+
 ipcMain.handle('open:external', (_e, url) => {
   if (/^https:\/\//.test(url)) shell.openExternal(url);
 });
+ipcMain.handle('clipboard:write', (_e, text) => clipboard.writeText(String(text)));
 
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => app.quit());

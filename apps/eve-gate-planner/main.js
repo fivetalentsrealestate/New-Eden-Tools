@@ -35,10 +35,12 @@ function createWindow() {
 
 const progress = (p) => win && !win.isDestroyed() && win.webContents.send('progress', p);
 
-// If EVE Router is installed and already downloaded the map, borrow its copy.
+// If EVE Jump Planner (formerly EVE Router) already downloaded the map, borrow its copy.
 function borrowFromEveRouter() {
-  const theirs = path.join(app.getPath('appData'), 'EVE Router', 'data', 'universe.json');
-  if (!fs.existsSync(theirs)) return null;
+  const theirs = ['EVE Jump Planner', 'EVE Router']
+    .map((n) => path.join(app.getPath('appData'), n, 'data', 'universe.json'))
+    .find((f) => fs.existsSync(f));
+  if (!theirs) return null;
   try {
     fs.mkdirSync(dataDir(), { recursive: true });
     fs.copyFileSync(theirs, path.join(dataDir(), 'universe.json'));

@@ -1,20 +1,43 @@
-// Jump drive planning: ship ranges, legal cyno destinations, route search, fatigue.
+// Jump drive planning: ship ranges, legal cyno destinations, route search, fatigue, fuel.
 // Works both in the app (window.Planner) and in Node for tests (module.exports).
 (function (root) {
   'use strict';
 
-  // Max range with Jump Drive Calibration V. Base range = half of this; each JDC level adds 20% of base.
+  // Fallback ship classes, used only when the map data has no per-hull ship list.
+  // max = range with Jump Drive Calibration V (base = half); fuel = isotopes per light-year.
   const SHIPS = [
-    { id: 'carrier', name: 'Carrier', max: 7, fatigue: 0 },
-    { id: 'dread', name: 'Dreadnought', max: 7, fatigue: 0 },
-    { id: 'fax', name: 'Force Auxiliary', max: 7, fatigue: 0 },
-    { id: 'lancer', name: 'Lancer Dreadnought', max: 8, fatigue: 0 },
-    { id: 'super', name: 'Supercarrier', max: 6, fatigue: 0 },
-    { id: 'titan', name: 'Titan', max: 6, fatigue: 0 },
-    { id: 'blops', name: 'Black Ops', max: 8, fatigue: 0.75 },
-    { id: 'jf', name: 'Jump Freighter', max: 10, fatigue: 0.9 },
-    { id: 'rorqual', name: 'Rorqual', max: 10, fatigue: 0.9 }
+    { id: 'carrier', name: 'Carrier', group: 'Carrier', max: 7, fuel: 3000 },
+    { id: 'dread', name: 'Dreadnought', group: 'Dreadnought', max: 7, fuel: 3000 },
+    { id: 'fax', name: 'Force Auxiliary', group: 'Force Auxiliary', max: 7, fuel: 3000 },
+    { id: 'lancer', name: 'Lancer Dreadnought', group: 'Lancer Dreadnought', max: 8, fuel: 3000 },
+    { id: 'super', name: 'Supercarrier', group: 'Supercarrier', max: 6, fuel: 3000 },
+    { id: 'titan', name: 'Titan', group: 'Titan', max: 6, fuel: 3000 },
+    { id: 'blops', name: 'Black Ops', group: 'Black Ops', max: 8, fuel: 700 },
+    { id: 'jf', name: 'Jump Freighter', group: 'Jump Freighter', max: 10, fuel: 10000 },
+    { id: 'rorqual', name: 'Rorqual', group: 'Capital Industrial Ship', max: 10, fuel: 4000 }
   ];
+
+  // Jump fatigue distance reduction by ship group
+  const FATIGUE_REDUCTION = { 'Black Ops': 0.75, 'Jump Freighter': 0.9, 'Capital Industrial Ship': 0.9 };
+  // Ship skills that also cut jump fuel, 10% per level
+  const FUEL_SKILLS = { 'Jump Freighter': 'Jump Freighters' };
+
+  // Turn a hull from the map data ({ n, g, fuel, fuelType, range }) into the planner's ship shape.
+  function fromHull(h) {
+    return { id: 'h' + h.id, name: h.n, group: h.g, max: h.range * 2, fuel: h.fuel, fuelType: h.fuelType };
+  }
+  function fatigueReduction(ship) { return FATIGUE_REDUCTION[ship.group] || 0; }
+  function fuelSkill(ship) { return FUEL_SKILLS[ship.group] || null; }
+
+  /**
+   * Isotopes for one jump:  ceil( LY × fuel/LY × (1 − 10% × Jump Fuel Conservation) × (1 − 10% × ship fuel skill) )
+   */
+  function fuelPerLy(ship, jfc, shipSkill) {
+    return ship.fuel * (1 - 0.1 * jfc) * (fuelSkill(ship) ? 1 - 0.1 * (shipSkill || 0) : 1);
+  }
+  function fuelForJump(ly, ship, jfc, shipSkill) {
+    return Math.ceil(ly * fuelPerLy(ship, jfc, shipSkill) - 1e-9);
+  }
 
   const POCHVEN_REGION = 10000070;
   const ZARZAKH = 30100000;
@@ -175,7 +198,7 @@
     return systems.filter((s) => s !== origin && canJumpTo(s) && dist(origin, s) <= range);
   }
 
-  const api = { SHIPS, shipRange, displaySec, secClass, canJumpTo, dist, planRoute, fatigueFor, inRange };
+  const api = { SHIPS, fromHull, fatigueReduction, fuelSkill, fuelPerLy, fuelForJump, shipRange, displaySec, secClass, canJumpTo, dist, planRoute, fatigueFor, inRange };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Planner = api;
 })(typeof window !== 'undefined' ? window : globalThis);

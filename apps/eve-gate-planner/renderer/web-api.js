@@ -112,6 +112,17 @@
     });
   }
 
+  // Average market prices (CCP's /markets/prices) for just the item types asked for.
+  async function getPrices(typeIds, refresh) {
+    const want = [...new Set(typeIds || [])].map(String).sort();
+    return cached('prices.' + want.join(','), 6 * 60 * 60 * 1000, refresh, async () => {
+      const rows = await esi(['/markets/prices', '/latest/markets/prices/']);
+      const prices = {};
+      for (const r of rows) if (want.includes(String(r.type_id))) prices[r.type_id] = r.average_price || r.adjusted_price || 0;
+      return { fetchedAt: new Date().toISOString(), prices };
+    });
+  }
+
   async function copy(text) {
     try { await navigator.clipboard.writeText(String(text)); } catch (e) {
       const ta = document.createElement('textarea');
@@ -125,6 +136,7 @@
     getUniverse,
     getSov,
     getKills,
+    getPrices,
     openExternal: async (url) => { if (/^https:\/\//.test(url)) window.open(url, '_blank', 'noopener'); },
     copy,
     onProgress: (cb) => { progressCb = cb; }

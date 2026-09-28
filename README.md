@@ -7,7 +7,7 @@ Free tools for EVE Online that run in any browser, install on your phone like an
 | | App | What it does |
 |---|---|---|
 | <img src="apps/market-finder/icon-192.png" width="48"> | **[Market Finder](https://fivetalentsrealestate.github.io/New-Eden-Tools/market/)** | Search any item and see every buy/sell order in New Eden, with jump counts from your current system. |
-| <img src="apps/eve-router/renderer/icon-192.png" width="48"> | **[EVE Router](https://fivetalentsrealestate.github.io/New-Eden-Tools/router/)** | Interactive New Eden map with live sovereignty and a capital **jump drive** planner (ranges, cyno rules, fatigue). |
+| <img src="apps/eve-jump-planner/renderer/icon-192.png" width="48"> | **[EVE Jump Planner](https://fivetalentsrealestate.github.io/New-Eden-Tools/jump/)** | Capital **jump drive** planner with a fuel calculator (per hull, Jump Fuel Conservation, m³ and ISK), fatigue estimates, cyno rules, and a New Eden map with live sovereignty. |
 | <img src="apps/eve-gate-planner/renderer/icon-192.png" width="48"> | **[Gate Planner](https://fivetalentsrealestate.github.io/New-Eden-Tools/gates/)** | **Stargate** route planner with the in-game autopilot settings: Shorter / Safer / Less Secure, security penalty, jump bridges, pod-kill / Triglavian / EDENCOM avoidance, waypoints. |
 
 ## On your phone
@@ -21,26 +21,26 @@ It opens full-screen with its own icon and remembers your settings. On the maps 
 
 ## On Windows (desktop app with a desktop icon)
 
-EVE Router and Gate Planner can also be installed as desktop apps. You'll need [Node.js LTS](https://nodejs.org).
+EVE Jump Planner and Gate Planner can also be installed as desktop apps. You'll need [Node.js LTS](https://nodejs.org).
 
 ```
-cd apps/eve-router          # or apps/eve-gate-planner
+cd apps/eve-jump-planner    # or apps/eve-gate-planner
 npm install
 npm start                   # run it
 npm run dist                # build an installer with a desktop icon
 ```
 
-Full instructions: [EVE Router](apps/eve-router/README.md) · [Gate Planner](apps/eve-gate-planner/README.md)
+Full instructions: [EVE Jump Planner](apps/eve-jump-planner/README.md) · [Gate Planner](apps/eve-gate-planner/README.md)
 
 ## How it's built
 
 ```
 apps/
   market-finder/        single-page web app
-  eve-router/
+  eve-jump-planner/
     renderer/           the app UI (used by both the website and the desktop app)
     main.js, lib/       desktop (Electron) wrapper
-  eve-gate-planner/     same layout as eve-router
+  eve-gate-planner/     same layout as eve-jump-planner
 site/                   landing page
 scripts/build-site.js   assembles the website and builds the map data
 .github/workflows/      publishes to GitHub Pages

@@ -163,3 +163,16 @@ button.small { padding: 3px 8px; font-size: 12px; }
 
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-thumb { background: #1d2736; border-radius: 10px; border: 2px solid var(--panel); }
+
+/* Skills row + fuel readout */
+.field-row.skills { gap: 6px; }
+.field-row.skills > label { flex: 1 1 0; min-width: 0; font-size: 11px; line-height: 1.25; justify-content: flex-end; }
+.fuel-readout { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; margin-top: -4px; }
+.fuel-readout .iso { width: 20px; height: 20px; border-radius: 4px; background: #0a0f16; flex: 0 0 auto; }
+.fuel-readout strong { color: #9fe3ff; font-variant-numeric: tabular-nums; }
+.stat .sub { color: var(--muted); font-size: 11px; font-weight: 400; margin-top: 2px; }
+.stat.fuel { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+.stat.fuel img { width: 32px; height: 32px; border-radius: 6px; background: #0a0f16; }
+
+/* the hidden attribute must win over display rules like label { display: flex } */
+[hidden] { display: none !important; }

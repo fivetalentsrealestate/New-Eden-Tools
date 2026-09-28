@@ -6,7 +6,7 @@ const path = require('path');
 
 const BASE = 'https://esi.evetech.net';
 const HEADERS = {
-  'User-Agent': 'EVE Router Desktop (personal map tool)',
+  'User-Agent': 'New Eden Tools (github.com/fivetalentsrealestate/New-Eden-Tools)',
   'X-Compatibility-Date': '2025-12-16',
   'Accept': 'application/json'
 };
@@ -77,4 +77,41 @@ function loadCachedSov(dataDir) {
   try { return JSON.parse(fs.readFileSync(path.join(dataDir, 'sov.json'), 'utf8')); } catch (e) { return null; }
 }
 
-module.exports = { fetchSovereignty, loadCachedSov };
+// Ship / pod / NPC kills per system over the last hour (ESI updates this hourly).
+async function fetchKills(dataDir) {
+  const rows = await getJson(['/universe/system_kills', '/latest/universe/system_kills/']);
+  const systems = {};
+  for (const r of rows) {
+    if (!r.ship_kills && !r.pod_kills && !r.npc_kills) continue;
+    systems[r.system_id] = { ship: r.ship_kills || 0, pod: r.pod_kills || 0, npc: r.npc_kills || 0 };
+  }
+  const result = { fetchedAt: new Date().toISOString(), systems };
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(path.join(dataDir, 'kills.json'), JSON.stringify(result));
+  return result;
+}
+
+function loadCachedKills(dataDir) {
+  try { return JSON.parse(fs.readFileSync(path.join(dataDir, 'kills.json'), 'utf8')); } catch (e) { return null; }
+}
+
+// Average market prices for the given item types (CCP's /markets/prices, updated about daily).
+async function fetchPrices(dataDir, typeIds) {
+  const want = new Set((typeIds || []).map(Number));
+  const rows = await getJson(['/markets/prices', '/latest/markets/prices/']);
+  const prices = {};
+  for (const r of rows) if (want.has(r.type_id)) prices[r.type_id] = r.average_price || r.adjusted_price || 0;
+  const result = { fetchedAt: new Date().toISOString(), prices };
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(path.join(dataDir, 'prices.json'), JSON.stringify(result));
+  return result;
+}
+
+function loadCachedPrices(dataDir, typeIds) {
+  try {
+    const c = JSON.parse(fs.readFileSync(path.join(dataDir, 'prices.json'), 'utf8'));
+    return (typeIds || []).every((id) => id in c.prices) ? c : null;
+  } catch (e) { return null; }
+}
+
+module.exports = { fetchSovereignty, loadCachedSov, fetchKills, loadCachedKills, fetchPrices, loadCachedPrices };

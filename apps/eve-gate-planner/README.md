@@ -26,13 +26,13 @@ Your start, waypoints and destination are never avoided, even if they're on a li
 - **Copy route** puts a plain-text list of the route on your clipboard.
 - Your settings, waypoints, avoidance list and bridges are remembered between sessions.
 
-Map data comes from CCP's official Static Data Export. If **EVE Router** is already installed, this app reuses the map data it downloaded. Otherwise it downloads the data once on first launch. Sovereignty refreshes every hour, and kills every 10 minutes (CCP updates the kill feed hourly).
+Map data comes from CCP's official Static Data Export. If **EVE Jump Planner** (or the older EVE Router) is already installed, this app reuses the map data it downloaded. Otherwise it downloads the data once on first launch. Sovereignty refreshes every hour, and kills every 10 minutes (CCP updates the kill feed hourly).
 
 ---
 
-## Setup (same as EVE Router)
+## Setup (same as EVE Jump Planner)
 
-1. Install **Node.js LTS** from https://nodejs.org (skip if you already did this for EVE Router).
+1. Install **Node.js LTS** from https://nodejs.org (skip if you already did this for EVE Jump Planner).
 2. Download the repo (**Code → Download ZIP** on GitHub, or clone it) and unzip it somewhere permanent. In VS Code choose **File → Open Folder…** and pick the **`apps\eve-gate-planner`** folder inside it.
 3. Open a terminal (**Terminal → New Terminal**) and run:
    ```

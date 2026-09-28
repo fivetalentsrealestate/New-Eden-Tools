@@ -1,6 +1,6 @@
 {
-  "name": "EVE Router",
-  "short_name": "EVE Router",
+  "name": "EVE Jump Planner",
+  "short_name": "Jump Planner",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
