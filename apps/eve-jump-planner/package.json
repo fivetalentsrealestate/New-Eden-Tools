@@ -1,7 +1,7 @@
 {
   "name": "eve-jump-planner",
   "productName": "EVE Jump Planner",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "EVE Online capital jump planner with fuel calculator and New Eden sovereignty map.",
   "main": "main.js",
   "author": "Dale Smith",

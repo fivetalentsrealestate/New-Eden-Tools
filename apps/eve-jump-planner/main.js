@@ -2,7 +2,7 @@
 
 const { app, BrowserWindow, ipcMain, shell, clipboard } = require('electron');
 const path = require('path');
-const { buildFromSde, loadCached } = require('./lib/sde');
+const { getUniverseData, loadCached } = require('./lib/sde');
 const { fetchSovereignty, loadCachedSov, fetchPrices, loadCachedPrices } = require('./lib/esi');
 
 const dataDir = () => path.join(app.getPath('userData'), 'data');
@@ -42,7 +42,7 @@ ipcMain.handle('universe:get', async (_e, { refresh } = {}) => {
     const cached = loadCached(dataDir(), { needShips: true });
     if (cached) return cached;
   }
-  return buildFromSde(dataDir(), progress);
+  return getUniverseData(dataDir(), progress, { needShips: true });
 });
 
 ipcMain.handle('sov:get', async (_e, { refresh } = {}) => {

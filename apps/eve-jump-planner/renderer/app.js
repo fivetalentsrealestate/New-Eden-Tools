@@ -102,6 +102,10 @@ window.api.onProgress((p) => {
     const mb = (p.got / 1048576).toFixed(1);
     const tot = p.total ? ` of ${(p.total / 1048576).toFixed(1)} MB` : ' MB';
     setLoading('Downloading map data from CCP…', `First run only: ${mb}${tot}`, p.total ? (p.got / p.total) * 85 : 40);
+  } else if (p.stage === 'retry') {
+    setLoading('Download interrupted, retrying…', `Attempt ${p.attempt} of ${p.tries}`, 5);
+  } else if (p.stage === 'fallback') {
+    setLoading('Downloading full map data from CCP…', 'The quick download was unavailable, so this takes a minute or two', 5);
   } else if (p.stage === 'extract') {
     setLoading('Unpacking…', `Reading ${p.file}`, 90);
   } else if (p.stage === 'build') {

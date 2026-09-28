@@ -3,7 +3,7 @@
 const { app, BrowserWindow, ipcMain, shell, clipboard } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { buildFromSde, loadCached } = require('./lib/sde');
+const { getUniverseData, loadCached } = require('./lib/sde');
 const { fetchSovereignty, loadCachedSov, fetchKills, loadCachedKills } = require('./lib/esi');
 
 const dataDir = () => path.join(app.getPath('userData'), 'data');
@@ -53,7 +53,7 @@ ipcMain.handle('universe:get', async (_e, { refresh } = {}) => {
     const cached = loadCached(dataDir()) || borrowFromEveRouter();
     if (cached) return cached;
   }
-  return buildFromSde(dataDir(), progress);
+  return getUniverseData(dataDir(), progress);
 });
 
 // Cached ESI data with a max age; falls back to the last copy when offline.

@@ -22,8 +22,12 @@ function enName(n) {
   return n.en || Object.values(n)[0] || '';
 }
 
-async function download(url, dest, onProgress) {
-  const res = await fetch(url, { headers: { 'User-Agent': 'New Eden Tools (github.com/fivetalentsrealestate/New-Eden-Tools)' } });
+const UA = { 'User-Agent': 'New Eden Tools (github.com/fivetalentsrealestate/New-Eden-Tools)' };
+
+// Downloads to a file and checks the size matches what the server announced, so a
+// connection that drops half-way is caught here instead of as a broken zip later.
+async function downloadOnce(url, dest, onProgress) {
+  const res = await fetch(url, { headers: UA });
   if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
   const total = Number(res.headers.get('content-length')) || 0;
   let got = 0;
@@ -33,6 +37,59 @@ async function download(url, dest, onProgress) {
     onProgress && onProgress({ stage: 'download', got, total });
   });
   await pipeline(reader, fs.createWriteStream(dest));
+  const size = fs.statSync(dest).size;
+  if (total && size !== total) throw new Error(`Download was cut off (${(size / 1048576).toFixed(1)} of ${(total / 1048576).toFixed(1)} MB)`);
+  return size;
+}
+
+async function download(url, dest, onProgress, tries = 3) {
+  let lastErr;
+  for (let i = 1; i <= tries; i++) {
+    try { return await downloadOnce(url, dest, onProgress); } catch (e) {
+      lastErr = e;
+      try { fs.unlinkSync(dest); } catch (_) { /* nothing to clean */ }
+      if (i < tries) {
+        onProgress && onProgress({ stage: 'retry', attempt: i + 1, tries });
+        await new Promise((r) => setTimeout(r, 2000 * i));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+// The New Eden Tools website publishes a ready-made universe.json (about 1 MB, rebuilt weekly
+// from CCP's data). Grabbing that is much faster than the ~100 MB SDE, so it's tried first.
+const PREBUILT_URL = 'https://fivetalentsrealestate.github.io/New-Eden-Tools/data/universe.json';
+
+async function fetchPrebuilt(dataDir, onProgress, { needShips = false } = {}) {
+  const res = await fetch(PREBUILT_URL, { headers: UA, cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const total = Number(res.headers.get('content-length')) || 0;
+  const parts = [];
+  let got = 0;
+  for await (const chunk of Readable.fromWeb(res.body)) {
+    parts.push(chunk);
+    got += chunk.length;
+    onProgress && onProgress({ stage: 'download', got, total: got > total ? 0 : total });
+  }
+  const text = Buffer.concat(parts).toString('utf8');
+  const u = JSON.parse(text);
+  if (!u.systems || u.systems.length < 5000 || !u.jumps || u.jumps.length < 5000) throw new Error('map data incomplete');
+  if (needShips && !(u.ships && u.ships.length)) throw new Error('ship data missing');
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(path.join(dataDir, 'universe.json'), text);
+  return u;
+}
+
+// Website copy first; CCP's full static data export as the fallback.
+async function getUniverseData(dataDir, onProgress, opts = {}) {
+  try {
+    onProgress && onProgress({ stage: 'download', got: 0, total: 0 });
+    return await fetchPrebuilt(dataDir, onProgress, opts);
+  } catch (e) {
+    onProgress && onProgress({ stage: 'fallback' });
+    return buildFromSde(dataDir, onProgress);
+  }
 }
 
 function openZip(file) {
@@ -182,4 +239,4 @@ function loadCached(dataDir, { needShips = false } = {}) {
   } catch (e) { return null; }
 }
 
-module.exports = { buildFromSde, loadCached, buildUniverse, SDE_URL };
+module.exports = { buildFromSde, fetchPrebuilt, getUniverseData, loadCached, buildUniverse, download, SDE_URL, PREBUILT_URL };
