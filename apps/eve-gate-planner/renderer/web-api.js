@@ -78,7 +78,8 @@
       if (done) break;
       parts.push(value);
       got += value.length;
-      progressCb({ stage: 'download', got, total });
+      // the server may send it compressed, so content-length can be smaller than what we read
+      progressCb({ stage: 'download', got, total: got > total ? 0 : total });
     }
     return JSON.parse(new TextDecoder().decode(await new Blob(parts).arrayBuffer()));
   }
