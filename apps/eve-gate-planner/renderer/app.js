@@ -27,7 +27,9 @@ const state = {
   route: null,
   blocked: new Map(),
   colorMode: 'sec',
-  layout: '3d',
+  layout: 'top',            // 'top' (flat top-down), '2d' (schematic) or '3d' (rotatable)
+  view3d: { yaw: 0, pitch: 0.96, fx: 0, fy: 0, fz: 0 }, // angles in radians; f* = 3D point the view turns around
+  depthOrder: null,         // systems sorted far → near, 3D only
   showHigh: true,
   selected: null,
   hover: null,
@@ -172,6 +174,11 @@ function ingest(u) {
 
   state.bridgeText = recall('bridges', '');
   applyBridgeText(state.bridgeText);
+  const saved = recall('layout', 'top');
+  state.layout = ['top', '2d', '3d'].includes(saved) ? saved : 'top';
+  const v = recall('view3d', null);
+  if (v && Number.isFinite(v.yaw) && Number.isFinite(v.pitch)) { state.view3d.yaw = v.yaw; state.view3d.pitch = clampPitch(v.pitch); }
+  markLayoutButtons();
   applyLayout();
   fit();
   restoreForm();
@@ -185,16 +192,33 @@ function applyBridgeText(text) {
   return r;
 }
 
+// Every layout produces flat "world" coordinates (wx, wy) for each system, so panning,
+// zooming, picking and route drawing work the same in all of them. The 3D layout gets
+// there by rotating the real star positions and projecting them onto the screen.
 function applyLayout() {
-  const use2d = state.layout === '2d';
-  for (const s of state.systems) {
-    if (use2d && s.x2 != null) { s.wx = s.x2; s.wy = -s.y2; } else { s.wx = s.x; s.wy = -s.z; }
+  const mode = state.layout;
+  if (mode === '3d') {
+    centre3d();
+    project3d();
+  } else {
+    for (const s of state.systems) {
+      if (mode === '2d' && s.x2 != null) { s.wx = s.x2; s.wy = -s.y2; } else { s.wx = s.x; s.wy = -s.z; }
+      s.dn = 1;
+    }
+    state.depthOrder = null;
+    computeRegionLabels();
   }
+  // Typical gate length sets dot size and when names appear. In 3D use the true length,
+  // so tilting the view doesn't make dots and labels jump around.
   const lens = state.jumps
     .filter(([a, b]) => a.r === b.r)
-    .map(([a, b]) => Math.hypot(a.wx - b.wx, a.wy - b.wy))
+    .map(([a, b]) => (mode === '3d' ? Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) : Math.hypot(a.wx - b.wx, a.wy - b.wy)))
     .sort((a, b) => a - b);
   state.medianGate = lens.length ? lens[lens.length >> 1] || 1 : 1;
+  $('orbit').hidden = mode !== '3d';
+}
+
+function computeRegionLabels() {
   const acc = new Map();
   for (const s of state.systems) {
     if (!acc.has(s.r)) acc.set(s.r, { x: 0, y: 0, n: 0 });
@@ -203,6 +227,80 @@ function applyLayout() {
   state.regionLabels = [...acc.entries()]
     .filter(([id]) => state.regions[id])
     .map(([id, a]) => ({ name: state.regions[id], x: a.x / a.n, y: a.y / a.n }));
+}
+
+// ---------- 3D view ----------
+// yaw turns the cluster around its vertical axis; pitch tilts it from straight down (0)
+// to edge-on (90°). At yaw 0 and pitch 0 the 3D view matches the Top-down map exactly.
+const TAU = Math.PI * 2;
+const PITCH_DEFAULT = 0.96; // about 55°
+const PITCH_MAX = Math.PI / 2;
+function clampPitch(p) { return Math.min(PITCH_MAX, Math.max(0, p)); }
+function basis3d() {
+  const { yaw, pitch } = state.view3d;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  return {
+    ex: [cy, 0, -sy],                // screen right
+    ey: [-sy * cp, -sp, -cy * cp],   // screen down
+    ez: [-sy * sp, cp, -cy * sp]     // toward the viewer
+  };
+}
+// Turn around the middle of the cluster.
+function centre3d() {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const s of state.systems) {
+    if (s.x < minX) minX = s.x; if (s.x > maxX) maxX = s.x;
+    if (s.y < minY) minY = s.y; if (s.y > maxY) maxY = s.y;
+    if (s.z < minZ) minZ = s.z; if (s.z > maxZ) maxZ = s.z;
+  }
+  Object.assign(state.view3d, { fx: (minX + maxX) / 2, fy: (minY + maxY) / 2, fz: (minZ + maxZ) / 2 });
+}
+function project3d() {
+  const { ex, ey, ez } = basis3d();
+  const f = state.view3d;
+  let dmin = Infinity, dmax = -Infinity;
+  for (const s of state.systems) {
+    const dx = s.x - f.fx, dy = s.y - f.fy, dz = s.z - f.fz;
+    s.wx = dx * ex[0] + dy * ex[1] + dz * ex[2];
+    s.wy = dx * ey[0] + dy * ey[1] + dz * ey[2];
+    s.d = dx * ez[0] + dy * ez[1] + dz * ez[2];
+    if (s.d < dmin) dmin = s.d;
+    if (s.d > dmax) dmax = s.d;
+  }
+  const span = dmax - dmin || 1;
+  for (const s of state.systems) s.dn = (s.d - dmin) / span; // 0 = farthest, 1 = nearest
+  state.depthOrder = [...state.systems].sort((a, b) => a.d - b.d);
+  computeRegionLabels();
+}
+// Rotate around whatever is in the middle of the screen, not the middle of the galaxy.
+function rotate3d(dYaw, dPitch) {
+  if (state.layout !== '3d' || !state.systems.length) return;
+  const f = state.view3d;
+  const { ex, ey } = basis3d();
+  const { x: cx, y: cy } = state.cam;
+  f.fx += cx * ex[0] + cy * ey[0];
+  f.fy += cx * ex[1] + cy * ey[1];
+  f.fz += cx * ex[2] + cy * ey[2];
+  state.cam.x = 0; state.cam.y = 0;
+  f.yaw = (((f.yaw + dYaw) % TAU) + TAU) % TAU;
+  f.pitch = clampPitch(f.pitch + dPitch);
+  project3d();
+  saveView3d();
+  draw();
+}
+function reset3d() {
+  if (state.layout !== '3d') return;
+  state.view3d.yaw = 0;
+  state.view3d.pitch = PITCH_DEFAULT;
+  centre3d();
+  project3d();
+  saveView3d();
+  fit();
+}
+let saveTimer = null;
+function saveView3d() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => store('view3d', { yaw: state.view3d.yaw, pitch: state.view3d.pitch }), 300);
 }
 
 // ---------- camera ----------
@@ -310,14 +408,19 @@ function render() {
   }
 
   // Gates
+  // In 3D, gates in the far half of the cluster are drawn fainter for a sense of depth.
+  const is3d = state.layout === '3d';
   ctx.lineWidth = 1;
-  const intra = new Path2D(), inter = new Path2D();
+  const intra = new Path2D(), inter = new Path2D(), intraFar = new Path2D(), interFar = new Path2D();
   for (const [a, b] of state.jumps) {
     if (!visible(a) || !visible(b)) continue;
     if (!onScreen(a.sx, a.sy) && !onScreen(b.sx, b.sy)) continue;
-    const path = a.r === b.r ? intra : inter;
+    const far = is3d && a.dn + b.dn < 1;
+    const path = a.r === b.r ? (far ? intraFar : intra) : (far ? interFar : inter);
     path.moveTo(a.sx, a.sy); path.lineTo(b.sx, b.sy);
   }
+  ctx.strokeStyle = 'rgba(90,110,140,.16)'; ctx.stroke(intraFar);
+  ctx.strokeStyle = 'rgba(160,100,220,.16)'; ctx.stroke(interFar);
   ctx.strokeStyle = 'rgba(90,110,140,.35)'; ctx.stroke(intra);
   ctx.strokeStyle = 'rgba(160,100,220,.35)'; ctx.stroke(inter);
 
@@ -341,11 +444,15 @@ function render() {
 
   // Systems
   const dotR = Math.max(1.4, Math.min(5, k * state.medianGate * 0.12));
-  for (const s of state.systems) {
+  // 3D draws far-to-near so nearer stars sit on top, and far ones are smaller and dimmer.
+  for (const s of (is3d && state.depthOrder) || state.systems) {
     if (!visible(s) || !onScreen(s.sx, s.sy)) continue;
     ctx.fillStyle = systemFill(s);
-    ctx.beginPath(); ctx.arc(s.sx, s.sy, dotR, 0, Math.PI * 2); ctx.fill();
+    let r = dotR;
+    if (is3d) { ctx.globalAlpha = 0.35 + 0.65 * s.dn; r = dotR * (0.7 + 0.55 * s.dn); }
+    ctx.beginPath(); ctx.arc(s.sx, s.sy, r, 0, Math.PI * 2); ctx.fill();
   }
+  ctx.globalAlpha = 1;
 
   // Invasion systems (only marked when their avoid option is on)
   const mark = (set, color, shape) => {
@@ -462,6 +569,7 @@ function renderLegend() {
   if ($('showBridges').checked && state.bridges.length) extra.push('<span class="lg"><span class="dot" style="background:#4fd18b;border-radius:2px;height:2px;width:14px"></span>jump bridge</span>');
   if ($('optTrig').checked) extra.push('<span class="lg" style="color:#ff7b72">▲ Triglavian</span>');
   if ($('optEden').checked) extra.push('<span class="lg" style="color:#7fb8ff">◆ EDENCOM</span>');
+  if (state.layout === '3d') extra.push('<span class="lg">3D: right-drag or Shift-drag to rotate · arrow keys · R resets</span>');
   if (state.colorMode === 'sec') {
     el.innerHTML = ['1.0', '0.8', '0.6', '0.5', '0.4', '0.2', '0.1'].map((d) =>
       `<span class="lg"><span class="dot" style="background:${SEC_COLORS[d]}"></span>${d}</span>`).join('') +
@@ -473,24 +581,34 @@ function renderLegend() {
 
 // ---------- map interaction ----------
 // Pointer input: mouse drag / touch drag pans, two-finger pinch zooms, click or tap selects.
+// In 3D: right-drag, middle-drag or Shift-drag rotates; on touch, twisting two fingers turns
+// the view and sliding them up or down together tilts it.
 let drag = null;
 let pinch = null;
 const pointers = new Map();
 const isPhone = () => window.matchMedia('(max-width: 820px)').matches;
+const ROT_SPEED = 0.006; // radians per pixel dragged
+function clampZoom(k) { return Math.min(state.fitK * 120, Math.max(state.fitK * 0.5, k)); }
 function localXY(e) { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
 function pinchInfo() {
   const [a, b] = [...pointers.values()];
   const r = canvas.getBoundingClientRect();
-  return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2 - r.left, my: (a.y + b.y) / 2 - r.top };
+  return {
+    d: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+    mx: (a.x + b.x) / 2 - r.left, my: (a.y + b.y) / 2 - r.top,
+    ang: Math.atan2(b.y - a.y, b.x - a.x)
+  };
 }
+canvas.addEventListener('contextmenu', (e) => { if (state.layout === '3d') e.preventDefault(); });
 canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size === 1) {
-    drag = { x: e.clientX, y: e.clientY, cx: state.cam.x, cy: state.cam.y, moved: false, touch: e.pointerType !== 'mouse' };
+    const rotate = state.layout === '3d' && e.pointerType === 'mouse' && (e.button === 1 || e.button === 2 || e.shiftKey);
+    drag = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, cx: state.cam.x, cy: state.cam.y, moved: false, rotate, touch: e.pointerType !== 'mouse' };
   } else if (pointers.size === 2) {
     const p = pinchInfo();
-    pinch = { d: p.d, k: state.cam.k, world: toWorld(p.mx, p.my) };
+    pinch = { d: p.d, k: state.cam.k, world: toWorld(p.mx, p.my), lastD: p.d, ang: p.ang, my: p.my };
     if (drag) drag.moved = true;
   }
 });
@@ -498,10 +616,34 @@ canvas.addEventListener('pointermove', (e) => {
   if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pinch && pointers.size >= 2) {
     const p = pinchInfo();
-    state.cam.k = Math.min(state.fitK * 120, Math.max(state.fitK * 0.5, pinch.k * (p.d / pinch.d)));
+    if (state.layout === '3d') {
+      // turn and tilt first (this re-centres the view), then zoom around the fingers
+      let da = p.ang - pinch.ang;
+      if (da > Math.PI) da -= TAU;
+      if (da < -Math.PI) da += TAU;
+      const dmy = p.my - pinch.my;
+      pinch.ang = p.ang; pinch.my = p.my;
+      if (Math.abs(da) > 1e-4 || Math.abs(dmy) > 0.5) rotate3d(-da, -dmy * ROT_SPEED);
+      const before = toWorld(p.mx, p.my);
+      state.cam.k = clampZoom(state.cam.k * (p.d / pinch.lastD));
+      pinch.lastD = p.d;
+      const after = toWorld(p.mx, p.my);
+      state.cam.x += before[0] - after[0]; state.cam.y += before[1] - after[1];
+      draw();
+      return;
+    }
+    state.cam.k = clampZoom(pinch.k * (p.d / pinch.d));
     const [nx, ny] = toWorld(p.mx, p.my);
     state.cam.x += pinch.world[0] - nx; state.cam.y += pinch.world[1] - ny;
     draw();
+    return;
+  }
+  if (drag && drag.rotate && pointers.size === 1) {
+    if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 3) { drag.moved = true; canvas.classList.add('dragging'); }
+    const dx = e.clientX - drag.lx, dy = e.clientY - drag.ly;
+    drag.lx = e.clientX; drag.ly = e.clientY;
+    $('tooltip').hidden = true;
+    rotate3d(dx * ROT_SPEED, -dy * ROT_SPEED);
     return;
   }
   if (drag && pointers.size === 1) {
@@ -523,7 +665,7 @@ canvas.addEventListener('pointermove', (e) => {
   }
 });
 function endPointer(e) {
-  const wasTap = drag && !drag.moved && pointers.size === 1 && e.type === 'pointerup';
+  const wasTap = drag && !drag.moved && !drag.rotate && pointers.size === 1 && e.type === 'pointerup';
   if (wasTap) {
     const [x, y] = localXY(e);
     const hit = pick(x, y, drag.touch ? 22 : 10);
@@ -548,7 +690,7 @@ canvas.addEventListener('wheel', (e) => {
   const r = canvas.getBoundingClientRect();
   const mx = e.clientX - r.left, my = e.clientY - r.top;
   const [wx, wy] = toWorld(mx, my);
-  state.cam.k = Math.min(state.fitK * 120, Math.max(state.fitK * 0.5, state.cam.k * Math.exp(-e.deltaY * 0.0015)));
+  state.cam.k = clampZoom(state.cam.k * Math.exp(-e.deltaY * 0.0015));
   const [nx, ny] = toWorld(mx, my);
   state.cam.x += wx - nx; state.cam.y += wy - ny;
   draw();
@@ -562,6 +704,37 @@ window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
   if (e.key === 'f' || e.key === 'F') fit();
   if (e.key === 'Escape') { state.selected = null; draw(); }
+  if (state.layout === '3d' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const step = { ArrowLeft: [-0.12, 0], ArrowRight: [0.12, 0], ArrowUp: [0, -0.08], ArrowDown: [0, 0.08] }[e.key];
+    if (step) { e.preventDefault(); rotate3d(step[0], step[1]); }
+    if (e.key === 'r' || e.key === 'R') reset3d();
+  }
+});
+
+// 3D buttons: tap for a small step, hold to keep turning.
+const ORBIT_STEP = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] };
+let orbitHold = null;
+function stopOrbit() { if (orbitHold) { cancelAnimationFrame(orbitHold.raf); orbitHold = null; } }
+$('orbit').querySelectorAll('button').forEach((b) => {
+  b.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const o = b.dataset.o;
+    if (o === 'reset') { reset3d(); return; }
+    const [sy, sp] = ORBIT_STEP[o];
+    rotate3d(sy * 0.08, sp * 0.06);
+    stopOrbit();
+    const start = performance.now();
+    let last = start;
+    const tick = (t) => {
+      if (!orbitHold) return;
+      // after a short pause, keep turning at about 70°/s (yaw) or 45°/s (tilt)
+      if (t - start > 300) { const dt = (t - last) / 1000; rotate3d(sy * 1.2 * dt, sp * 0.8 * dt); }
+      last = t;
+      orbitHold.raf = requestAnimationFrame(tick);
+    };
+    orbitHold = { raf: requestAnimationFrame(tick) };
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => b.addEventListener(ev, stopOrbit));
 });
 window.addEventListener('resize', resize);
 
@@ -978,10 +1151,19 @@ document.querySelectorAll('#colorMode button').forEach((b) => b.addEventListener
   setColorMode(b.dataset.v);
   if (b.dataset.v === 'sec') { state.highlightAlliance = null; renderSovList(); }
 }));
+function markLayoutButtons() {
+  document.querySelectorAll('#layoutMode button').forEach((x) => x.classList.toggle('on', x.dataset.v === state.layout));
+}
 document.querySelectorAll('#layoutMode button').forEach((b) => b.addEventListener('click', () => {
+  if (b.dataset.v === state.layout) return;
+  stopOrbit();
   state.layout = b.dataset.v;
-  document.querySelectorAll('#layoutMode button').forEach((x) => x.classList.toggle('on', x === b));
-  applyLayout(); fit();
+  store('layout', state.layout);
+  markLayoutButtons();
+  applyLayout();
+  // keep the selected system (or the route) in view when switching
+  if (state.selected) { fit(); centerOn(state.selected); } else fit();
+  draw();
 }));
 ['showKills', 'showBridges'].forEach((id) => $(id).addEventListener('change', draw));
 $('showHigh').addEventListener('change', (e) => { state.showHigh = e.target.checked; draw(); });

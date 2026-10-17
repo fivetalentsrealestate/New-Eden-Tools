@@ -124,8 +124,9 @@
           <button data-v="sov">Sovereignty</button>
         </div>
         <div class="seg" id="layoutMode">
-          <button data-v="3d" class="on">Top-down</button>
-          <button data-v="2d">Schematic</button>
+          <button data-v="top" class="on" title="Flat map, looking straight down on New Eden">Top-down</button>
+          <button data-v="2d" title="CCP's tidy 2D schematic layout">Schematic</button>
+          <button data-v="3d" title="Real star positions in 3D. Right-drag or Shift-drag to rotate">3D</button>
         </div>
         <label class="inline"><input type="checkbox" id="showKills" checked> Kills (1h)</label>
         <label class="inline"><input type="checkbox" id="showBridges" checked> Jump bridges</label>
@@ -135,6 +136,14 @@
       <canvas id="map"></canvas>
       <div id="tooltip" hidden></div>
       <div id="legend"></div>
+      <!-- 3D view controls (shown only in 3D). Hold a button to keep turning. -->
+      <div id="orbit" class="orbit" hidden>
+        <button type="button" data-o="left" title="Rotate left (← key)" aria-label="Rotate left">⟲</button>
+        <button type="button" data-o="up" title="Tilt toward top-down (↑ key)" aria-label="Tilt toward top-down">▲</button>
+        <button type="button" data-o="right" title="Rotate right (→ key)" aria-label="Rotate right">⟳</button>
+        <button type="button" data-o="down" title="Tilt toward side view (↓ key)" aria-label="Tilt toward side view">▼</button>
+        <button type="button" data-o="reset" class="wide" title="Reset the 3D view (R key)">Reset view</button>
+      </div>
     </main>
   </div>
 

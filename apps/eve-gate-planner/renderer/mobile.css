@@ -53,6 +53,10 @@
   #toolbar label.inline, .seg button, #toolbar #fit { font-size: 13px; }
 
   #legend { display: none; }
+  /* sit above the collapsed route panel */
+  .orbit { right: 8px; bottom: calc(70px + env(safe-area-inset-bottom)); grid-template-columns: repeat(2, 46px); }
+  .orbit button { padding: 10px 0; font-size: 17px; }
+  .orbit button.wide { font-size: 13px; padding: 8px 4px; }
   #tooltip { display: none !important; }
   .data-foot { display: none; }
   .loading-card { width: calc(100vw - 40px); }

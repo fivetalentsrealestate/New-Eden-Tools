@@ -23,6 +23,13 @@ Your start, waypoints and destination are never avoided, even if they're on a li
 
 **Also included**
 - Full New Eden map with pan and zoom, security or sovereignty colouring, and live kill heat from the last hour. Your route is drawn in gold and jump bridges in green.
+- Three map views: **Top-down** (real star positions seen from above), **Schematic** (CCP's tidy 2D layout) and **3D**. In 3D you can turn and tilt the cluster to see how high or low regions sit:
+  - **Mouse:** right-drag, middle-drag or Shift-drag to rotate. Left-drag still pans and the wheel still zooms.
+  - **Phone / touch:** twist two fingers to turn, slide them up or down together to tilt, pinch to zoom.
+  - **Keyboard:** ← → turn, ↑ ↓ tilt, **R** resets the view.
+  - **Buttons:** the rotate and tilt buttons in the bottom-right corner (hold one to keep turning), plus **Reset view**.
+
+  Distant stars and gates are drawn smaller and fainter so you can tell near from far. Clicking, routing and everything else work the same in every view, and the app remembers which view and angle you used last.
 - Every system on the route shows its security, sov holder, and ship and pod kills, plus flags for Triglavian, EDENCOM and avoided systems.
 - A summary for each route: total jumps, lowest security, high/low/null count, kills along the route, and how many jump bridges it uses.
 - **Copy route** puts a plain-text list of the route on your clipboard.
