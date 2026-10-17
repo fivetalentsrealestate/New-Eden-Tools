@@ -19,7 +19,10 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
 
-#app { display: grid; grid-template-columns: 360px 1fr; height: 100vh; }
+/* Pinned to the window edges rather than 100vh: in a maximized desktop window 100vh can come out
+   taller than the visible area, which pushed the bottom of the sidebar off screen. */
+#app { display: grid; grid-template-columns: 360px 1fr; grid-template-rows: minmax(0, 1fr); position: fixed; inset: 0; }
+#mapWrap { min-height: 0; }
 
 /* Sidebar */
 #sidebar {
@@ -41,7 +44,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }
 
-.panel { display: none; padding: 14px 16px; overflow-y: auto; flex: 1; min-height: 0; }
+.panel { display: none; padding: 14px 16px 28px; overflow-y: auto; flex: 1; min-height: 0; }
 .panel.active { display: flex; flex-direction: column; gap: 10px; }
 
 label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
