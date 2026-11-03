@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#05070b">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Log in with your EVE characters and download their skills, assets, locations, PI and more as a file.">
+  <link rel="icon" href="../jump/icon-192.png">
+  <title>Character Export</title>
+  <style>
+    :root {
+      --bg: #05070b; --panel: #0c1119; --panel-2: #121925; --line: #1f2a3a;
+      --text: #d8e1ee; --muted: #8391a8; --accent: #4fc3f7; --gold: #ffd166;
+      --good: #6fdc8c; --bad: #ff7a7a;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.55 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+      background-image: radial-gradient(1200px 600px at 70% -10%, rgba(79,195,247,.10), transparent 60%);
+      min-height: 100vh;
+    }
+    a { color: var(--accent); }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 0 16px; }
+    header { padding: calc(36px + env(safe-area-inset-top)) 0 10px; }
+    .eyebrow { color: var(--gold); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
+    .eyebrow a { color: inherit; text-decoration: none; }
+    h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; margin: 8px 0 10px; font-weight: 700; }
+    .lede { color: var(--muted); margin: 0; max-width: 660px; }
+    .box { border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; background: rgba(12,17,25,.8); margin: 18px 0; }
+    .box h2 { font-size: 18px; margin: 0 0 10px; font-weight: 600; }
+    .box p { margin: 6px 0; color: #b7c3d5; font-size: 15px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    input[type=text] {
+      background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+      border-radius: 8px; padding: 10px 12px; font: inherit; font-size: 15px; flex: 1 1 260px; min-width: 0;
+    }
+    button {
+      background: var(--panel-2); color: var(--text); border: 1px solid #2b3a50; border-radius: 10px;
+      padding: 10px 16px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    button:hover:not(:disabled) { border-color: #45607f; }
+    button:disabled { opacity: .5; cursor: default; }
+    button.primary { background: var(--accent); color: #03141f; border-color: var(--accent); }
+    button.small { padding: 6px 12px; font-size: 13px; }
+    button.link { background: none; border: 0; color: var(--muted); padding: 4px 6px; font-weight: 400; text-decoration: underline; }
+    .chars { display: grid; gap: 10px; }
+    .char { display: flex; gap: 14px; align-items: center; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 10px 12px; }
+    .char img { width: 52px; height: 52px; border-radius: 8px; flex: 0 0 auto; background: #000; }
+    .char .who { flex: 1; min-width: 0; }
+    .char .name { font-weight: 600; }
+    .char .meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+    .char .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .empty { color: var(--muted); font-size: 15px; }
+    #log { font: 13px/1.5 ui-monospace, Consolas, monospace; color: var(--muted); background: #070a10; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; max-height: 260px; overflow: auto; white-space: pre-wrap; display: none; margin-top: 12px; }
+    #log .ok { color: var(--good); } #log .err { color: var(--bad); }
+    code { background: var(--panel-2); border: 1px solid var(--line); padding: 1px 6px; border-radius: 5px; font-size: 13px; overflow-wrap: anywhere; }
+    ol, ul { padding-left: 20px; margin: 8px 0; color: #b7c3d5; font-size: 15px; }
+    li { margin: 3px 0; }
+    .note { color: var(--muted); font-size: 13px; }
+    footer { border-top: 1px solid var(--line); margin-top: 30px; padding: 18px 0 calc(28px + env(safe-area-inset-bottom)); color: var(--muted); font-size: 13px; }
+    @media (max-width: 600px) {
+      .char { flex-wrap: wrap; }
+      .char .acts { width: 100%; justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow"><a href="../">New Eden Tools</a></div>
+    <h1>Character Export</h1>
+    <p class="lede">Log in with your characters through CCP's official EVE login, then download their skills, assets, locations, PI colonies, clones, wallet, industry jobs and market orders as a file. Everything runs in your browser. Nothing is sent anywhere except CCP's own servers.</p>
+  </header>
+
+  <section class="box" id="setupBox" hidden>
+    <h2>One-time setup</h2>
+    <p>This page needs the <strong>Client ID</strong> of an app registered at <a href="https://developers.eveonline.com" target="_blank" rel="noopener">developers.eveonline.com</a>, with this callback URL:</p>
+    <p><code id="cbUrl"></code></p>
+    <div class="row" style="margin-top:10px">
+      <input type="text" id="clientId" placeholder="Paste your Client ID" autocomplete="off" spellcheck="false">
+      <button class="primary" id="saveClient">Save</button>
+    </div>
+    <p class="note">Only the Client ID. Never paste the Secret Key here or anywhere else.</p>
+  </section>
+
+  <section class="box" id="charsBox">
+    <h2>Your characters</h2>
+    <div class="chars" id="chars"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" id="addChar">+ Add a character (EVE login)</button>
+      <button id="exportAll" disabled>⬇ Export all characters (one file)</button>
+    </div>
+    <div id="log"></div>
+  </section>
+
+  <section class="box">
+    <h2>How it works</h2>
+    <ol>
+      <li><strong>Add a character.</strong> You're sent to CCP's login page, where you sign in and pick a character. Repeat for each character; log out of EVE's site in between if it keeps picking the same one, or use a different account.</li>
+      <li><strong>Export.</strong> The page reads that character's data from CCP's API and saves a <code>.json</code> file to your downloads.</li>
+      <li><strong>Share it.</strong> Attach the file to a chat with Claude, or keep it as a snapshot.</li>
+    </ol>
+    <p class="note">The login is remembered in this browser so you can export again later without signing in. <em>Remove</em> forgets a character here. To fully revoke access, go to <a href="https://community.eveonline.com/support/third-party-applications/" target="_blank" rel="noopener">EVE's third-party applications page</a>. The file contains your wallet balance and asset list, so only share it with people and tools you trust.</p>
+    <p class="note"><button class="link" id="changeClient">Change Client ID</button></p>
+  </section>
+
+  <footer>Not affiliated with CCP Games. EVE Online and all related names are trademarks of CCP hf.</footer>
+</div>
+
+<script>
+'use strict';
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+// Fill in the Client ID of the registered EVE developer app to skip the setup box.
+const BUILT_IN_CLIENT_ID = '';
+const SCOPES = [
+  'esi-skills.read_skills.v1', 'esi-skills.read_skillqueue.v1',
+  'esi-assets.read_assets.v1',
+  'esi-location.read_location.v1', 'esi-location.read_ship_type.v1',
+  'esi-planets.manage_planets.v1',
+  'esi-wallet.read_character_wallet.v1',
+  'esi-clones.read_clones.v1', 'esi-clones.read_implants.v1',
+  'esi-universe.read_structures.v1',
+  'esi-industry.read_character_jobs.v1',
+  'esi-markets.read_character_orders.v1',
+];
+const SSO = 'https://login.eveonline.com/v2/oauth';
+const ESI = 'https://esi.evetech.net/latest';
+const LS = { client: 'net.export.clientId', chars: 'net.export.chars', cache: 'net.export.cache' };
+const CALLBACK = location.origin + location.pathname.replace(/index\.html$/, '');
+
+// ---------------------------------------------------------------------------
+// Small helpers
+// ---------------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function load(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } }
+function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* storage full or blocked */ } }
+function b64url(bytes) { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function randomString(n = 32) { return b64url(crypto.getRandomValues(new Uint8Array(n))); }
+async function sha256(text) { return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))); }
+function decodeJwt(t) { const p = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(decodeURIComponent(escape(atob(p)))); }
+function chunk(arr, n) { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; }
+async function pool(items, n, fn) {
+  const out = new Array(items.length); let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (i < items.length) { const k = i++; out[k] = await fn(items[k], k); }
+  }));
+  return out;
+}
+function today() { return new Date().toISOString().slice(0, 10); }
+function slug(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+function isk(n) { return n == null ? '?' : n >= 1e9 ? (n / 1e9).toFixed(2) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : Math.round(n).toLocaleString(); }
+function sp(n) { return n == null ? '?' : (n / 1e6).toFixed(1) + 'M SP'; }
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function log(msg, cls) {
+  const el = $('log'); el.style.display = 'block';
+  const line = document.createElement('div'); if (cls) line.className = cls;
+  line.textContent = msg; el.appendChild(line); el.scrollTop = el.scrollHeight;
+}
+
+function clientId() { return load(LS.client, '') || BUILT_IN_CLIENT_ID; }
+
+// ---------------------------------------------------------------------------
+// EVE SSO (OAuth 2 with PKCE, no secret needed)
+// ---------------------------------------------------------------------------
+async function startLogin() {
+  const verifier = randomString(48), state = randomString(16);
+  sessionStorage.setItem('net.export.pkce', JSON.stringify({ verifier, state }));
+  const q = new URLSearchParams({
+    response_type: 'code', redirect_uri: CALLBACK, client_id: clientId(),
+    scope: SCOPES.join(' '), state, code_challenge: b64url(await sha256(verifier)), code_challenge_method: 'S256',
+  });
+  location.href = `${SSO}/authorize?${q}`;
+}
+
+async function tokenRequest(params) {
+  const res = await fetch(`${SSO}/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: clientId(), ...params }),
+  });
+  if (!res.ok) throw new Error(`EVE login refused (${res.status}). ${res.status === 400 || res.status === 401 ? 'Check the Client ID and callback URL.' : ''}`);
+  return res.json();
+}
+
+function storeToken(tok) {
+  const jwt = decodeJwt(tok.access_token);
+  const id = Number(String(jwt.sub).split(':').pop());
+  const chars = load(LS.chars, {});
+  chars[id] = { ...(chars[id] || {}), id, name: jwt.name, refresh: tok.refresh_token, access: tok.access_token, exp: jwt.exp * 1000 };
+  save(LS.chars, chars);
+  return chars[id];
+}
+
+async function handleCallback() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('code') && !q.has('error')) return;
+  history.replaceState(null, '', CALLBACK);
+  if (q.has('error')) { log(`EVE login cancelled: ${q.get('error_description') || q.get('error')}`, 'err'); return; }
+  const saved = JSON.parse(sessionStorage.getItem('net.export.pkce') || 'null');
+  sessionStorage.removeItem('net.export.pkce');
+  if (!saved || saved.state !== q.get('state')) { log('Login response did not match this browser session. Please try again.', 'err'); return; }
+  try {
+    const c = storeToken(await tokenRequest({ grant_type: 'authorization_code', code: q.get('code'), code_verifier: saved.verifier }));
+    log(`Added ${c.name}.`, 'ok');
+  } catch (e) { log(e.message, 'err'); }
+}
+
+async function accessToken(id) {
+  const c = load(LS.chars, {})[id];
+  if (!c) throw new Error('Character not logged in');
+  if (c.access && c.exp - 60000 > Date.now()) return c.access;
+  const tok = await tokenRequest({ grant_type: 'refresh_token', refresh_token: c.refresh });
+  return storeToken(tok).access;
+}
+
+// ---------------------------------------------------------------------------
+// ESI access with retries, paging and caches
+// ---------------------------------------------------------------------------
+async function esi(path, { token, body, raw } = {}) {
+  const url = ESI + path + (path.includes('?') ? '&' : '?') + 'datasource=tranquility';
+  let lastErr;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const headers = { Accept: 'application/json' };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    if (body) headers['Content-Type'] = 'application/json';
+    let res;
+    try { res = await fetch(url, { method: body ? 'POST' : 'GET', headers, body: body ? JSON.stringify(body) : undefined }); }
+    catch (e) { lastErr = e; await sleep(800 * (attempt + 1)); continue; }
+    if (res.ok) { const data = await res.json(); return raw ? { data, pages: Number(res.headers.get('x-pages')) || 0 } : data; }
+    if (res.status === 420 || res.status >= 500) { lastErr = new Error(`ESI ${res.status}`); await sleep(1500 * (attempt + 1)); continue; }
+    let detail = ''; try { detail = (await res.json()).error || ''; } catch { /* not JSON */ }
+    const err = new Error(`${res.status} ${detail}`.trim()); err.status = res.status; throw err;
+  }
+  throw lastErr || new Error('ESI not responding');
+}
+
+async function esiPaged(path, token) {
+  const first = await esi(path, { token, raw: true });
+  let all = first.data;
+  if (first.pages > 1) {
+    const rest = await pool(Array.from({ length: first.pages - 1 }, (_, i) => i + 2), 4, (p) => esi(`${path}?page=${p}`, { token }));
+    for (const r of rest) all = all.concat(r);
+  } else if (!first.pages && all.length >= 1000) {
+    // X-Pages header hidden: keep asking until a page comes back empty
+    for (let p = 2; p < 60; p++) {
+      let r; try { r = await esi(`${path}?page=${p}`, { token }); } catch (e) { if (e.status === 404) break; throw e; }
+      if (!r.length) break; all = all.concat(r);
+    }
+  }
+  return all;
+}
+
+// Static data (types, groups, categories) is cached in this browser between exports.
+const cache = Object.assign({ types: {}, groups: {}, cats: {} }, load(LS.cache, {}));
+const NAMES = new Map(), SYS = new Map(), CONST = new Map(), LOCS = new Map(), PLANETS = new Map(), SCHEM = new Map();
+
+async function loadTypes(ids) {
+  const need = [...new Set(ids)].filter((id) => id && !cache.types[id]);
+  if (need.length > 20) log(`  looking up ${need.length} item types (cached after the first time)…`);
+  await pool(need, 30, async (id) => {
+    try { const t = await esi(`/universe/types/${id}/`); cache.types[id] = { n: t.name, g: t.group_id, v: t.volume, pv: t.packaged_volume }; }
+    catch { cache.types[id] = { n: `Type ${id}`, g: 0, v: 0 }; }
+  });
+  const groups = [...new Set(need.map((id) => cache.types[id].g))].filter((g) => g && !cache.groups[g]);
+  await pool(groups, 20, async (g) => {
+    try { const r = await esi(`/universe/groups/${g}/`); cache.groups[g] = { n: r.name, c: r.category_id }; }
+    catch { cache.groups[g] = { n: `Group ${g}`, c: 0 }; }
+  });
+  const cats = [...new Set(groups.map((g) => cache.groups[g].c))].filter((c) => c && !cache.cats[c]);
+  await pool(cats, 10, async (c) => {
+    try { cache.cats[c] = (await esi(`/universe/categories/${c}/`)).name; } catch { cache.cats[c] = `Category ${c}`; }
+  });
+  save(LS.cache, cache);
+}
+const T = (id) => cache.types[id] || { n: `Type ${id}`, g: 0, v: 0 };
+const groupOf = (id) => (cache.groups[T(id).g] || {}).n || '';
+const catOf = (id) => cache.cats[(cache.groups[T(id).g] || {}).c] || '';
+
+async function resolveNames(ids) {
+  const need = [...new Set(ids)].filter((id) => id && !NAMES.has(id));
+  async function go(list) {
+    if (!list.length) return;
+    try { for (const r of await esi('/universe/names/', { body: list })) NAMES.set(r.id, r.name); }
+    catch (e) {
+      if (e.status === 404 && list.length > 1) { const h = list.length >> 1; await go(list.slice(0, h)); await go(list.slice(h)); }
+      else list.forEach((id) => NAMES.set(id, null));
+    }
+  }
+  for (const c of chunk(need, 1000)) await go(c);
+}
+
+async function system(id) {
+  if (!id) return null;
+  if (!SYS.has(id)) {
+    SYS.set(id, (async () => {
+      const s = await esi(`/universe/systems/${id}/`);
+      if (!CONST.has(s.constellation_id)) CONST.set(s.constellation_id, esi(`/universe/constellations/${s.constellation_id}/`));
+      const c = await CONST.get(s.constellation_id);
+      await resolveNames([c.region_id]);
+      return { system: s.name, security: Math.round(s.security_status * 10) / 10, region: NAMES.get(c.region_id) || '' };
+    })().catch(() => ({ system: `System ${id}`, security: null, region: '' })));
+  }
+  return SYS.get(id);
+}
+
+// Name and system for a station, Upwell structure, solar system or special location id.
+async function place(id, token) {
+  if (!id) return null;
+  if (!LOCS.has(id)) {
+    LOCS.set(id, (async () => {
+      if (id >= 60000000 && id < 64000000) {
+        const s = await esi(`/universe/stations/${id}/`);
+        return { name: s.name, ...(await system(s.system_id)) };
+      }
+      if (id >= 30000000 && id < 33000000) { const s = await system(id); return { name: `${s.system} (in space)`, ...s }; }
+      if (id === 2004) return { name: 'Asset Safety' };
+      if (id > 1e12) {
+        try { const s = await esi(`/universe/structures/${id}/`, { token }); return { name: s.name, ...(await system(s.solar_system_id)) }; }
+        catch { return { name: `Upwell structure ${id} (no docking access)` }; }
+      }
+      return { name: `Location ${id}` };
+    })().catch(() => ({ name: `Location ${id}` })));
+  }
+  return LOCS.get(id);
+}
+
+// ---------------------------------------------------------------------------
+// The export, one section at a time. A failed section is noted and skipped.
+// ---------------------------------------------------------------------------
+const SLOT = [[/^HiSlot/, 'high'], [/^MedSlot/, 'mid'], [/^LoSlot/, 'low'], [/^RigSlot/, 'rigs'], [/^SubSystemSlot/, 'subsystems']];
+const ACTIVITY = { 1: 'Manufacturing', 3: 'Researching TE', 4: 'Researching ME', 5: 'Copying', 7: 'Reverse engineering', 8: 'Invention', 9: 'Reactions', 11: 'Reactions' };
+
+async function exportCharacter(id) {
+  const token = await accessToken(id);
+  const name = load(LS.chars, {})[id].name;
+  log(`${name}: exporting…`);
+  const out = { exported_at: new Date().toISOString(), character: { id, name } };
+  const errors = {};
+  const section = async (key, fn) => {
+    try { out[key] = await fn(); }
+    catch (e) { errors[key] = e.status === 403 ? 'not allowed (scope missing from the login, add the character again)' : e.message; log(`  ${key}: ${errors[key]}`, 'err'); }
+  };
+
+  await section('character', async () => {
+    const p = await esi(`/characters/${id}/`);
+    await resolveNames([p.corporation_id, p.alliance_id].filter(Boolean));
+    return { id, name, corporation: NAMES.get(p.corporation_id), alliance: p.alliance_id ? NAMES.get(p.alliance_id) : null,
+      security_status: Math.round((p.security_status || 0) * 100) / 100, birthday: p.birthday };
+  });
+  if (!out.character.name) out.character = { id, name };
+
+  await section('location', async () => {
+    const [loc, ship] = await Promise.all([esi(`/characters/${id}/location/`, { token }), esi(`/characters/${id}/ship/`, { token })]);
+    await loadTypes([ship.ship_type_id]);
+    const where = loc.station_id || loc.structure_id ? await place(loc.station_id || loc.structure_id, token) : null;
+    return { ...(await system(loc.solar_system_id)), docked_at: where ? where.name : null,
+      ship: { type: T(ship.ship_type_id).n, name: ship.ship_name } };
+  });
+
+  await section('wallet_isk', () => esi(`/characters/${id}/wallet/`, { token }));
+
+  await section('skills', async () => {
+    const s = await esi(`/characters/${id}/skills/`, { token });
+    await loadTypes(s.skills.map((k) => k.skill_id));
+    const byGroup = {};
+    for (const k of s.skills.sort((a, b) => T(a.skill_id).n.localeCompare(T(b.skill_id).n))) {
+      const g = groupOf(k.skill_id) || 'Other';
+      (byGroup[g] = byGroup[g] || []).push({ skill: T(k.skill_id).n, level: k.active_skill_level, trained: k.trained_skill_level, sp: k.skillpoints_in_skill });
+    }
+    const sorted = {}; for (const g of Object.keys(byGroup).sort()) sorted[g] = byGroup[g];
+    return { total_sp: s.total_sp, unallocated_sp: s.unallocated_sp || 0, skill_count: s.skills.length, by_group: sorted };
+  });
+
+  await section('skill_queue', async () => {
+    const q = await esi(`/characters/${id}/skillqueue/`, { token });
+    await loadTypes(q.map((k) => k.skill_id));
+    return q.sort((a, b) => a.queue_position - b.queue_position)
+      .map((k) => ({ skill: T(k.skill_id).n, to_level: k.finished_level, finishes: k.finish_date || null }));
+  });
+
+  await section('clones', async () => {
+    const [c, imp] = await Promise.all([esi(`/characters/${id}/clones/`, { token }), esi(`/characters/${id}/implants/`, { token })]);
+    const all = imp.concat(...c.jump_clones.map((j) => j.implants));
+    await loadTypes(all);
+    return {
+      home_station: c.home_location ? (await place(c.home_location.location_id, token)).name : null,
+      active_implants: imp.map((t) => T(t).n),
+      last_clone_jump: c.last_clone_jump_date || null,
+      jump_clones: await Promise.all(c.jump_clones.map(async (j) => ({
+        location: (await place(j.location_id, token)).name, name: j.name || null, implants: j.implants.map((t) => T(t).n) }))),
+    };
+  });
+
+  await section('planets', async () => {
+    const list = await esi(`/characters/${id}/planets/`, { token });
+    return pool(list, 4, async (p) => {
+      if (!PLANETS.has(p.planet_id)) PLANETS.set(p.planet_id, esi(`/universe/planets/${p.planet_id}/`).catch(() => ({ name: `Planet ${p.planet_id}` })));
+      const [info, detail, sys] = await Promise.all([PLANETS.get(p.planet_id), esi(`/characters/${id}/planets/${p.planet_id}/`, { token }), system(p.solar_system_id)]);
+      const pins = detail.pins || [];
+      await loadTypes(pins.flatMap((x) => [x.type_id, x.extractor_details && x.extractor_details.product_type_id, ...(x.contents || []).map((c) => c.type_id)]).filter(Boolean));
+      const extractors = [], factories = {}, storage = [];
+      for (const x of pins) {
+        if (x.extractor_details) {
+          const e = x.extractor_details;
+          extractors.push({ product: e.product_type_id ? T(e.product_type_id).n : null, heads: (e.heads || []).length,
+            cycle_minutes: e.cycle_time ? e.cycle_time / 60 : null, units_per_cycle: e.qty_per_cycle || null, expires: x.expiry_time || null });
+        } else if (x.schematic_id || (x.factory_details && x.factory_details.schematic_id)) {
+          const sid = x.schematic_id || x.factory_details.schematic_id;
+          if (!SCHEM.has(sid)) SCHEM.set(sid, esi(`/universe/schematics/${sid}/`).then((r) => r.schematic_name).catch(() => `Schematic ${sid}`));
+          const tn = T(x.type_id).n;
+          const label = `${await SCHEM.get(sid)} (${/High-Tech/i.test(tn) ? 'high-tech' : /Advanced/i.test(tn) ? 'advanced' : 'basic'} factory)`;
+          factories[label] = (factories[label] || 0) + 1;
+        }
+        if (x.contents && x.contents.length) storage.push({ structure: T(x.type_id).n, contents: x.contents.map((c) => ({ item: T(c.type_id).n, amount: c.amount })) });
+      }
+      const exp = extractors.map((e) => e.expires).filter(Boolean).sort();
+      return { planet: info.name, type: p.planet_type, ...sys, command_center_level: p.upgrade_level, structures: p.num_pins,
+        last_update: p.last_update, extractors_expire_first: exp[0] || null, extractors, factories, storage };
+    });
+  });
+
+  await section('industry_jobs', async () => {
+    const jobs = await esi(`/characters/${id}/industry/jobs/`, { token });
+    await loadTypes(jobs.flatMap((j) => [j.blueprint_type_id, j.product_type_id]).filter(Boolean));
+    return Promise.all(jobs.map(async (j) => ({ activity: ACTIVITY[j.activity_id] || `Activity ${j.activity_id}`,
+      blueprint: T(j.blueprint_type_id).n, product: j.product_type_id ? T(j.product_type_id).n : null, runs: j.runs, status: j.status,
+      ends: j.end_date, facility: (await place(j.facility_id, token)).name, cost_isk: j.cost || 0 })));
+  });
+
+  await section('market_orders', async () => {
+    const orders = await esi(`/characters/${id}/orders/`, { token });
+    await loadTypes(orders.map((o) => o.type_id));
+    return Promise.all(orders.map(async (o) => ({ side: o.is_buy_order ? 'buy' : 'sell', item: T(o.type_id).n, price: o.price,
+      remaining: o.volume_remain, total: o.volume_total, location: (await place(o.location_id, token)).name, issued: o.issued, duration_days: o.duration })));
+  });
+
+  await section('assets', () => exportAssets(id, token));
+
+  if (Object.keys(errors).length) out.errors = errors;
+  log(`${out.character.name}: done.`, 'ok');
+  return out;
+}
+
+async function exportAssets(id, token) {
+  const items = await esiPaged(`/characters/${id}/assets/`, token);
+  log(`  ${items.length} asset entries`);
+  await loadTypes(items.map((i) => i.type_id));
+  const byId = new Map(items.map((i) => [i.item_id, i]));
+  const kids = new Map();
+  for (const i of items) if (byId.has(i.location_id)) { if (!kids.has(i.location_id)) kids.set(i.location_id, []); kids.get(i.location_id).push(i); }
+
+  // Custom names of ships and containers
+  const named = new Map();
+  const singles = items.filter((i) => i.is_singleton && (kids.has(i.item_id) || catOf(i.type_id) === 'Ship')).map((i) => i.item_id);
+  for (const c of chunk(singles, 1000)) {
+    try { for (const r of await esi(`/characters/${id}/assets/names/`, { token, body: c })) if (r.name && r.name !== 'None') named.set(r.item_id, r.name); }
+    catch { /* names are a nice-to-have */ }
+  }
+
+  const m3 = (i) => i.quantity * (i.is_singleton && catOf(i.type_id) !== 'Ship' ? T(i.type_id).v : (T(i.type_id).pv ?? T(i.type_id).v) || 0);
+  const round = (n) => Math.round(n * 100) / 100;
+  const isBpc = (i) => i.is_blueprint_copy || (catOf(i.type_id) === 'Blueprint' && i.quantity === -2);
+
+  // Merge plain stacks of the same item; describe ships and containers on their own.
+  function list(arr) {
+    const merged = new Map(), single = [];
+    for (const i of arr) {
+      if (kids.has(i.item_id) || (catOf(i.type_id) === 'Ship' && i.is_singleton)) { single.push(describe(i)); continue; }
+      const key = i.type_id + (isBpc(i) ? ':bpc' : '') + ':' + (i.location_flag || '');
+      const qty = i.quantity < 0 ? 1 : i.quantity;
+      const prev = merged.get(key);
+      if (prev) { prev.qty += qty; prev.m3 = round(prev.m3 + m3({ ...i, quantity: qty })); }
+      else {
+        const e = { item: T(i.type_id).n, qty, m3: round(m3({ ...i, quantity: qty })) };
+        if (isBpc(i)) e.blueprint_copy = true;
+        if (i.location_flag && !/^(Hangar|Cargo|Locked|Unlocked)$/.test(i.location_flag)) e.flag = i.location_flag;
+        merged.set(key, e);
+      }
+    }
+    return single.concat([...merged.values()].sort((a, b) => a.item.localeCompare(b.item)));
+  }
+
+  function describe(i) {
+    const d = { item: T(i.type_id).n };
+    if (named.has(i.item_id)) d.name = named.get(i.item_id);
+    const ship = catOf(i.type_id) === 'Ship';
+    if (ship) d.ship = true;
+    if (i.location_flag && !/^(Hangar|Cargo)$/.test(i.location_flag)) d.flag = i.location_flag;
+    const inside = kids.get(i.item_id) || [];
+    if (ship) {
+      const fit = {}, holds = {};
+      for (const k of inside) {
+        const slot = SLOT.find(([re]) => re.test(k.location_flag));
+        if (slot && catOf(k.type_id) === 'Charge') (d.loaded_charges = d.loaded_charges || []).push(`${T(k.type_id).n} x${k.quantity}`);
+        else if (slot) (fit[slot[1]] = fit[slot[1]] || []).push(T(k.type_id).n);
+        else (holds[k.location_flag] = holds[k.location_flag] || []).push(k);
+      }
+      if (Object.keys(fit).length) d.fitted = fit;
+      for (const [flag, arr] of Object.entries(holds)) (d.holds = d.holds || {})[flag] = list(arr);
+    } else if (inside.length) d.contents = list(inside);
+    return d;
+  }
+
+  // Group by the station / structure / system everything ultimately sits in.
+  const roots = new Map();
+  for (const i of items) {
+    if (byId.has(i.location_id)) continue;
+    if (!roots.has(i.location_id)) roots.set(i.location_id, []);
+    roots.get(i.location_id).push(i);
+  }
+  const fittedFlag = (i) => SLOT.some(([re]) => re.test(i.location_flag || ''));
+  const total = (arr) => arr.reduce((s, i) => s + (kids.has(i.item_id) ? total(kids.get(i.item_id)) : 0) + ((catOf(i.type_id) === 'Ship' && i.is_singleton) || fittedFlag(i) ? 0 : m3(i)), 0);
+  const locations = await Promise.all([...roots.entries()].map(async ([loc, arr]) => {
+    const p = await place(loc, token);
+    const ships = arr.filter((i) => catOf(i.type_id) === 'Ship' && i.is_singleton).map((i) => named.get(i.item_id) ? `${T(i.type_id).n} "${named.get(i.item_id)}"` : T(i.type_id).n);
+    return { location: p.name, system: p.system || null, security: p.security ?? null, region: p.region || null,
+      assembled_ships: ships, items_m3_excluding_assembled_ships: round(total(arr)), items: list(arr) };
+  }));
+  locations.sort((a, b) => (a.region || '').localeCompare(b.region || '') || (a.system || '').localeCompare(b.system || '') || a.location.localeCompare(b.location));
+  return { asset_entries: items.length, location_count: locations.length, locations };
+}
+
+// ---------------------------------------------------------------------------
+// UI
+// ---------------------------------------------------------------------------
+function download(name, data) {
+  const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+function summary(d) {
+  const bits = [];
+  if (d.location && d.location.system) bits.push(`${d.location.docked_at || d.location.system}${d.location.ship ? ' · ' + d.location.ship.type : ''}`);
+  if (d.skills) bits.push(sp(d.skills.total_sp));
+  if (d.wallet_isk != null) bits.push(isk(d.wallet_isk) + ' ISK');
+  if (d.planets) {
+    const first = d.planets.map((p) => p.extractors_expire_first).filter(Boolean).sort()[0];
+    bits.push(`${d.planets.length} planet${d.planets.length === 1 ? '' : 's'}${first ? ', first extractor stops ' + new Date(first).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}`);
+  }
+  if (d.assets) bits.push(`assets in ${d.assets.location_count} places`);
+  return bits.join(' · ');
+}
+
+const LAST = {};
+function render() {
+  const cid = clientId();
+  $('setupBox').hidden = !!cid;
+  $('cbUrl').textContent = CALLBACK;
+  $('addChar').disabled = !cid;
+  const chars = Object.values(load(LS.chars, {})).sort((a, b) => a.name.localeCompare(b.name));
+  $('exportAll').disabled = !chars.length;
+  $('chars').innerHTML = chars.length ? '' : '<div class="empty">No characters yet. Add one to get started.</div>';
+  for (const c of chars) {
+    const el = document.createElement('div'); el.className = 'char';
+    el.innerHTML = `<img src="https://images.evetech.net/characters/${c.id}/portrait?size=64" alt="" onerror="this.style.visibility='hidden'">
+      <div class="who"><div class="name">${esc(c.name)}</div><div class="meta">${esc(LAST[c.id] ? summary(LAST[c.id]) : 'Ready to export')}</div></div>
+      <div class="acts"><button class="small primary" data-x="${c.id}">⬇ Export</button><button class="small" data-r="${c.id}">Remove</button></div>`;
+    $('chars').appendChild(el);
+  }
+}
+
+let busy = false;
+async function run(fn) {
+  if (busy) return; busy = true;
+  document.querySelectorAll('button').forEach((b) => (b.disabled = true));
+  try { await fn(); } catch (e) { log(e.message, 'err'); }
+  busy = false;
+  document.querySelectorAll('button').forEach((b) => (b.disabled = false));
+  render();
+}
+
+$('chars').addEventListener('click', (ev) => {
+  const x = ev.target.closest('[data-x]'), r = ev.target.closest('[data-r]');
+  if (x) run(async () => {
+    const d = await exportCharacter(Number(x.dataset.x)); LAST[d.character.id] = d;
+    download(`eve-${slug(d.character.name)}-${today()}.json`, d);
+  });
+  if (r) {
+    const chars = load(LS.chars, {});
+    if (confirm(`Forget ${chars[r.dataset.r].name} in this browser?`)) { delete chars[r.dataset.r]; save(LS.chars, chars); render(); }
+  }
+});
+
+$('exportAll').addEventListener('click', () => run(async () => {
+  const ids = Object.keys(load(LS.chars, {})).map(Number), characters = [];
+  for (const id of ids) {
+    try { const d = await exportCharacter(id); LAST[id] = d; characters.push(d); }
+    catch (e) { log(`${load(LS.chars, {})[id].name}: ${e.message}`, 'err'); }
+  }
+  if (characters.length) download(`eve-characters-${today()}.json`, { exported_at: new Date().toISOString(), characters });
+}));
+
+$('addChar').addEventListener('click', () => startLogin());
+$('saveClient').addEventListener('click', () => {
+  const v = $('clientId').value.trim();
+  if (!/^[0-9a-f]{32}$/i.test(v)) { alert('That does not look like an EVE Client ID (32 letters and numbers).'); return; }
+  save(LS.client, v); render();
+});
+$('changeClient').addEventListener('click', () => { $('clientId').value = load(LS.client, ''); $('setupBox').hidden = false; });
+
+handleCallback().then(render);
+</script>
+</body>
+</html>

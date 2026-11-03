@@ -9,6 +9,7 @@ Free tools for EVE Online that run in any browser, install on your phone like an
 | <img src="apps/market-finder/icon-192.png" width="48"> | **[Market Finder](https://fivetalentsrealestate.github.io/New-Eden-Tools/market/)** | Search any item and see every buy/sell order in New Eden, with jump counts from your current system. |
 | <img src="apps/eve-jump-planner/renderer/icon-192.png" width="48"> | **[EVE Jump Planner](https://fivetalentsrealestate.github.io/New-Eden-Tools/jump/)** | Capital **jump drive** planner with a fuel calculator (per hull, Jump Fuel Conservation, m³ and ISK), fatigue estimates, cyno rules, and a New Eden map with live sovereignty. |
 | <img src="apps/eve-gate-planner/renderer/icon-192.png" width="48"> | **[Gate Planner](https://fivetalentsrealestate.github.io/New-Eden-Tools/gates/)** | **Stargate** route planner with the in-game autopilot settings: Shorter / Safer / Less Secure, security penalty, jump bridges, pod-kill / Triglavian / EDENCOM avoidance, waypoints. |
+|  | **[Character Export](https://fivetalentsrealestate.github.io/New-Eden-Tools/export/)** | Log in with your characters through CCP's official EVE login (PKCE, no secret) and download their skills, assets, locations, PI colonies, clones, wallet, industry jobs and market orders as a JSON file. Runs entirely in your browser. Needs your own app's Client ID from developers.eveonline.com, with `https://fivetalentsrealestate.github.io/New-Eden-Tools/export/` as the callback URL. |
 
 ## On your phone
 

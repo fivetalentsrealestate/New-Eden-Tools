@@ -2,6 +2,7 @@
 //   /            landing page (site/)
 //   /market/     New Eden Market Finder
 //   /jump/       EVE Jump Planner (jump drives, fuel, sovereignty)
+//   /export/     Character Export (EVE login, downloads a character's data as JSON)
 //   /router/     redirect to /jump/ (the app's old name was EVE Router)
 //   /gates/      EVE Gate Planner (stargate routes)
 //   /data/       universe.json built from CCP's Static Data Export
