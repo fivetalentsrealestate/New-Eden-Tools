@@ -77,22 +77,27 @@ function loadCachedSov(dataDir) {
   try { return JSON.parse(fs.readFileSync(path.join(dataDir, 'sov.json'), 'utf8')); } catch (e) { return null; }
 }
 
-// Ship / pod / NPC kills per system over the last hour (ESI updates this hourly).
+// Ship / pod / NPC kills and stargate jumps per system over the last hour (ESI updates these hourly).
 async function fetchKills(dataDir) {
-  const rows = await getJson(['/universe/system_kills', '/latest/universe/system_kills/']);
+  const [rows, jumps] = await Promise.all([
+    getJson(['/universe/system_kills', '/latest/universe/system_kills/']),
+    getJson(['/universe/system_jumps', '/latest/universe/system_jumps/']).catch(() => [])
+  ]);
   const systems = {};
+  const row = (id) => systems[id] || (systems[id] = { ship: 0, pod: 0, npc: 0, jumps: 0 });
   for (const r of rows) {
     if (!r.ship_kills && !r.pod_kills && !r.npc_kills) continue;
-    systems[r.system_id] = { ship: r.ship_kills || 0, pod: r.pod_kills || 0, npc: r.npc_kills || 0 };
+    Object.assign(row(r.system_id), { ship: r.ship_kills || 0, pod: r.pod_kills || 0, npc: r.npc_kills || 0 });
   }
-  const result = { fetchedAt: new Date().toISOString(), systems };
+  for (const r of jumps) if (r.ship_jumps) row(r.system_id).jumps = r.ship_jumps;
+  const result = { fetchedAt: new Date().toISOString(), systems, hasJumps: jumps.length > 0 };
   fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(path.join(dataDir, 'kills.json'), JSON.stringify(result));
+  fs.writeFileSync(path.join(dataDir, 'activity.json'), JSON.stringify(result));
   return result;
 }
 
 function loadCachedKills(dataDir) {
-  try { return JSON.parse(fs.readFileSync(path.join(dataDir, 'kills.json'), 'utf8')); } catch (e) { return null; }
+  try { return JSON.parse(fs.readFileSync(path.join(dataDir, 'activity.json'), 'utf8')); } catch (e) { return null; }
 }
 
 // Average market prices for the given item types (CCP's /markets/prices, updated about daily).

@@ -3,7 +3,7 @@
 const { app, BrowserWindow, ipcMain, shell, clipboard } = require('electron');
 const path = require('path');
 const { getUniverseData, loadCached } = require('./lib/sde');
-const { fetchSovereignty, loadCachedSov, fetchPrices, loadCachedPrices } = require('./lib/esi');
+const { fetchSovereignty, loadCachedSov, fetchPrices, loadCachedPrices, fetchKills, loadCachedKills } = require('./lib/esi');
 
 const dataDir = () => path.join(app.getPath('userData'), 'data');
 let win;
@@ -51,6 +51,19 @@ ipcMain.handle('sov:get', async (_e, { refresh } = {}) => {
   if (!refresh && !stale) return cached;
   try {
     return await fetchSovereignty(dataDir());
+  } catch (e) {
+    if (cached) return { ...cached, offline: true, error: String(e.message || e) };
+    throw e;
+  }
+});
+
+// Kills and stargate jumps per system over the last hour.
+ipcMain.handle('kills:get', async (_e, { refresh } = {}) => {
+  const cached = loadCachedKills(dataDir());
+  const stale = !cached || Date.now() - new Date(cached.fetchedAt).getTime() > 10 * 60 * 1000;
+  if (!refresh && !stale) return cached;
+  try {
+    return await fetchKills(dataDir());
   } catch (e) {
     if (cached) return { ...cached, offline: true, error: String(e.message || e) };
     throw e;

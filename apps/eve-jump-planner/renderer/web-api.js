@@ -101,14 +101,20 @@
   }
 
   async function getKills(refresh) {
-    return cached('kills', 10 * 60 * 1000, refresh, async () => {
-      const rows = await esi(['/universe/system_kills', '/latest/universe/system_kills/']);
+    // Kills and stargate jumps per system over the last hour (CCP updates both hourly).
+    return cached('activity', 10 * 60 * 1000, refresh, async () => {
+      const [rows, jumps] = await Promise.all([
+        esi(['/universe/system_kills', '/latest/universe/system_kills/']),
+        esi(['/universe/system_jumps', '/latest/universe/system_jumps/']).catch(() => [])
+      ]);
       const systems = {};
+      const row = (id) => systems[id] || (systems[id] = { ship: 0, pod: 0, npc: 0, jumps: 0 });
       for (const r of rows) {
         if (!r.ship_kills && !r.pod_kills && !r.npc_kills) continue;
-        systems[r.system_id] = { ship: r.ship_kills || 0, pod: r.pod_kills || 0, npc: r.npc_kills || 0 };
+        Object.assign(row(r.system_id), { ship: r.ship_kills || 0, pod: r.pod_kills || 0, npc: r.npc_kills || 0 });
       }
-      return { fetchedAt: new Date().toISOString(), systems };
+      for (const r of jumps) if (r.ship_jumps) row(r.system_id).jumps = r.ship_jumps;
+      return { fetchedAt: new Date().toISOString(), systems, hasJumps: jumps.length > 0 };
     });
   }
 

@@ -31,6 +31,10 @@ Your start, waypoints and destination are never avoided, even if they're on a li
 
   Distant stars and gates are drawn smaller and fainter so you can tell near from far. Clicking, routing and everything else work the same in every view, and the app remembers which view and angle you used last.
 - Every system on the route shows its security, sov holder, and ship and pod kills, plus flags for Triglavian, EDENCOM and avoided systems.
+- **Live intel** (CCP's ESI and zKillboard, no login needed):
+  - **Traffic (1h)** on the map toolbar colours each system by how many ships jumped through it in the last hour. Kills (1h) still shows the fights.
+  - **Danger ratings.** Every system gets a ⚠ *Danger* or *Caution* tag based on kills and pod kills in the last hour, kills in the last 7 days from zKillboard (to catch regular gate camps even when the last hour was quiet), and heavy traffic in low or null. Each route opens with a box listing every risky system on it, with the reasons. The System tab shows the full breakdown.
+- **My pilots** (website version only): log your characters in once on the [Character Export](https://fivetalentsrealestate.github.io/New-Eden-Tools/export/) page, then the **Pilots** tab and the map show where each one is right now, docked or in space, and in which ship. It refreshes every minute. *Set start* plans from that pilot's system. CCP doesn't publish how many players are in a system, so this shows only your own characters.
 - A summary for each route: total jumps, lowest security, high/low/null count, kills along the route, and how many jump bridges it uses.
 - **Copy route** puts a plain-text list of the route on your clipboard.
 - Your settings, waypoints, avoidance list and bridges are remembered between sessions.

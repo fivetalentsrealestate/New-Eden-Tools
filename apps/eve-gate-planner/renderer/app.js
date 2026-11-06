@@ -1,4 +1,4 @@
-/* global Gates, SpecialSystems */
+/* global Gates, SpecialSystems, LiveIntel */
 'use strict';
 
 const G = window.Gates;
@@ -17,6 +17,7 @@ const state = {
   regionLabels: [],
   sov: null,
   kills: null,
+  pilots: [],               // my characters' live locations (website only)
   allianceColor: new Map(),
   trig: new Set(),
   eden: new Set(),
@@ -78,6 +79,21 @@ function sovLabel(sys) {
   return '';
 }
 function killsOf(sys) { return (state.kills && state.kills.systems[sys.id]) || null; }
+const LI = window.LiveIntel;
+// Danger rating from last-hour kills and jumps (CCP) plus 7-day kills (zKillboard, once fetched)
+function dangerOf(sys) { return LI.danger(sys.s, killsOf(sys), LI.zkCached(sys.id)); }
+function dangerTag(sys) {
+  const d = dangerOf(sys);
+  return d.level ? `<span class="tag ${d.level === 2 ? 'danger' : 'caution'}" title="${esc(d.why.join(' · '))}">⚠ ${d.label}</span>` : '';
+}
+// Fetch zKillboard 7-day counts for these systems in the background, re-rendering as they arrive.
+let zkRedraw = null;
+function wantWeekKills(systems) {
+  LI.zkWeek(systems.map((s) => s.id), () => {
+    clearTimeout(zkRedraw);
+    zkRedraw = setTimeout(() => { if (state.route && state.route.legs) renderRoute(); if (state.selected) renderSystem(state.selected); draw(); }, 400);
+  });
+}
 function store(key, val) { try { localStorage.setItem('gp.' + key, JSON.stringify(val)); } catch (e) { /* ignore */ } }
 function recall(key, def) { try { const v = localStorage.getItem('gp.' + key); return v == null ? def : JSON.parse(v); } catch (e) { return def; } }
 function findSystem(text) { return text ? state.byName.get(text.trim().toLowerCase()) || null : null; }
@@ -392,6 +408,20 @@ function render() {
     }
   }
 
+  // Traffic: stargate jumps in the last hour
+  if ($('showTraffic').checked && state.kills) {
+    for (const s of state.systems) {
+      const kl = killsOf(s);
+      if (!kl || !kl.jumps || !visible(s) || !onScreen(s.sx, s.sy)) continue;
+      const r = Math.min(30, 3 + Math.sqrt(kl.jumps) * 1.3) * Math.min(1.6, Math.max(0.6, k * state.medianGate / 25));
+      const grd = ctx.createRadialGradient(s.sx, s.sy, 0, s.sx, s.sy, r);
+      grd.addColorStop(0, `rgba(90,170,255,${Math.min(0.6, 0.15 + kl.jumps / 600)})`);
+      grd.addColorStop(1, 'rgba(90,170,255,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(s.sx, s.sy, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
   // Kills heat (last hour)
   if ($('showKills').checked && state.kills) {
     for (const s of state.systems) {
@@ -515,6 +545,26 @@ function render() {
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   }
 
+  // My pilots
+  if ($('showPilots').checked && state.pilots.length) {
+    const at = new Map();
+    for (const p of state.pilots) if (p.systemId) { if (!at.has(p.systemId)) at.set(p.systemId, []); at.get(p.systemId).push(p); }
+    ctx.font = '600 11px "Segoe UI", sans-serif';
+    for (const [id, list] of at) {
+      const s = state.byId.get(id);
+      if (!s || !onScreen(s.sx, s.sy)) continue;
+      ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(s.sx, s.sy, 12, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(5,7,11,.8)';
+      const label = list.length === 1 ? list[0].name : `${list.length} pilots`;
+      const w = ctx.measureText(label).width + 8;
+      ctx.fillRect(s.sx - w / 2, s.sy - 30, w, 15);
+      ctx.fillStyle = '#4fc3f7'; ctx.textAlign = 'center';
+      ctx.fillText(label, s.sx, s.sy - 19);
+      ctx.textAlign = 'left';
+    }
+  }
+
   // Labels
   const showSysNames = k * state.medianGate > 38;
   if (showSysNames) {
@@ -566,6 +616,8 @@ function renderLegend() {
   const el = $('legend');
   const extra = [];
   if ($('showKills').checked) extra.push('<span class="lg"><span class="dot" style="background:rgba(255,60,80,.8)"></span>kills, last hour</span>');
+  if ($('showTraffic').checked) extra.push('<span class="lg"><span class="dot" style="background:rgba(90,170,255,.8)"></span>traffic (jumps), last hour</span>');
+  if ($('showPilots').checked && state.pilots.length) extra.push('<span class="lg" style="color:#4fc3f7">◯ my pilots</span>');
   if ($('showBridges').checked && state.bridges.length) extra.push('<span class="lg"><span class="dot" style="background:#4fd18b;border-radius:2px;height:2px;width:14px"></span>jump bridge</span>');
   if ($('optTrig').checked) extra.push('<span class="lg" style="color:#ff7b72">▲ Triglavian</span>');
   if ($('optEden').checked) extra.push('<span class="lg" style="color:#7fb8ff">◆ EDENCOM</span>');
@@ -756,6 +808,8 @@ function flagsHtml(sys) {
   if (state.trig.has(sys.id)) out.push('<span class="tag trig">Triglavian</span>');
   if (state.eden.has(sys.id)) out.push('<span class="tag eden">EDENCOM</span>');
   if (state.avoid.has(sys.id)) out.push('<span class="tag pod">avoided</span>');
+  const dt = dangerTag(sys);
+  if (dt) out.unshift(dt);
   return out.join(' ');
 }
 
@@ -766,7 +820,7 @@ function showTooltip(sys, x, y) {
   const flags = flagsHtml(sys);
   tip.innerHTML = `<div class="t">${esc(sys.n)} ${secHtml(sys.s)}</div>
     <div class="m">${esc(state.regions[sys.r] || '')} · ${esc(state.constellations[sys.c] || '')}</div>
-    ${sov ? `<div>${esc(sov)}</div>` : ''}${flags ? `<div style="margin-top:4px">${flags}</div>` : ''}`;
+    ${sov ? `<div>${esc(sov)}</div>` : ''}${killsOf(sys) && killsOf(sys).jumps ? `<div class="m">${killsOf(sys).jumps} jumps in the last hour</div>` : ''}${pilotsIn(sys)}${flags ? `<div style="margin-top:4px">${flags}</div>` : ''}`;
   tip.hidden = false;
   const { W, H } = viewSize();
   tip.style.left = `${Math.min(W - tip.offsetWidth - 8, x + 14)}px`;
@@ -801,6 +855,9 @@ function renderSystem(sys) {
     .filter((x) => x.s)
     .sort((a, b) => a.s.n.localeCompare(b.s.n));
   const kl = killsOf(sys);
+  wantWeekKills([sys]);
+  const wk = LI.zkCached(sys.id);
+  const dg = dangerOf(sys);
   el.innerHTML = `
     <div class="sys-title">${esc(sys.n)} ${secHtml(sys.s)}</div>
     <div class="kv">
@@ -808,7 +865,10 @@ function renderSystem(sys) {
       <span class="k">Constellation</span><span>${esc(state.constellations[sys.c] || '—')}</span>
       <span class="k">True sec</span><span>${sys.s.toFixed(3)}</span>
       <span class="k">Sovereignty</span><span>${o && o.a ? `<span class="link" data-alliance="${o.a}">${esc(nameOf(o.a))}</span>` : o && o.f ? esc(nameOf(o.f)) : '—'}</span>
-      <span class="k">Kills (1h)</span><span>${kl ? `${kl.ship} ships · ${kl.pod} pods · ${kl.npc} NPCs` : state.kills ? 'None' : '—'}</span>
+      <span class="k">Kills (1h)</span><span>${kl && (kl.ship || kl.pod || kl.npc) ? `${kl.ship} ships · ${kl.pod} pods · ${kl.npc} NPCs` : state.kills ? 'None' : '—'}</span>
+      <span class="k">Traffic (1h)</span><span>${kl && kl.jumps ? `${kl.jumps} jumps` : state.kills ? 'Quiet' : '—'}</span>
+      <span class="k">Kills (7 days)</span><span>${wk == null ? '<span class="note">checking zKillboard…</span>' : wk >= 200 ? '200+' : wk}</span>
+      <span class="k">Danger</span><span>${dg.level ? `${dangerTag(sys)} <span class="note">${esc(dg.why.join(' · '))}</span>` : '<span class="note">Nothing unusual</span>'}</span>
       ${state.trig.has(sys.id) ? '<span class="k">Invasion</span><span style="color:#ff7b72">Triglavian minor victory</span>' : ''}
       ${state.eden.has(sys.id) ? '<span class="k">Invasion</span><span style="color:#7fb8ff">EDENCOM system</span>' : ''}
     </div>
@@ -1060,6 +1120,14 @@ function renderRoute() {
   });
 
   const strip = entered.map((s) => `<span style="background:${secColor(s.s)}"></span>`).join('');
+  wantWeekKills(all);
+  const risky = all.map((s) => ({ s, d: dangerOf(s) })).filter((x) => x.d.level).sort((a, b) => b.d.level - a.d.level);
+  const pendingWeek = all.filter((s) => LI.zkCached(s.id) === undefined).length;
+  const dangerBox = risky.length
+    ? `<div class="danger-box"><div class="h">⚠ ${risky.filter((x) => x.d.level === 2).length} danger, ${risky.filter((x) => x.d.level === 1).length} caution on this route</div>
+        ${risky.map((x) => `<div class="row" data-sys="${x.s.id}">${x.d.level === 2 ? '🔴' : '🟡'} <b>${esc(x.s.n)}</b> ${secHtml(x.s.s)} <span class="why">${esc(x.d.why.join(' · '))}</span></div>`).join('')}
+        ${pendingWeek ? `<div class="why">Checking 7-day history on zKillboard: ${pendingWeek} system${pendingWeek === 1 ? '' : 's'} left…</div>` : ''}</div>`
+    : `<div class="danger-box calm">✓ No recent danger seen on this route${pendingWeek ? ` (still checking 7-day history: ${pendingWeek} left)` : ''}. Always scout gate camps you know about.</div>`;
   el.innerHTML = `
     <div class="route-summary">
       <div class="stat"><div class="k">Jumps</div><div class="v">${r.jumps}</div></div>
@@ -1069,8 +1137,10 @@ function renderRoute() {
       ${bridgesUsed ? `<div class="stat"><div class="k">Jump bridges</div><div class="v" style="color:var(--bridge)">${bridgesUsed}</div></div>` : ''}
     </div>
     <div class="sec-strip">${strip}</div>
+    ${dangerBox}
     <div class="btn-row"><button id="copyRoute" class="ghost small">Copy route</button></div>
     <div class="route-list">${rows}</div>`;
+  el.querySelectorAll('.danger-box .row').forEach((row) => row.addEventListener('click', () => select(state.byId.get(+row.dataset.sys), { center: true })));
   el.querySelectorAll('.hop').forEach((row) => {
     const s = state.byId.get(+row.dataset.sys);
     row.addEventListener('mouseenter', () => { state.hover = s; draw(); });
@@ -1165,7 +1235,8 @@ document.querySelectorAll('#layoutMode button').forEach((b) => b.addEventListene
   if (state.selected) { fit(); centerOn(state.selected); } else fit();
   draw();
 }));
-['showKills', 'showBridges'].forEach((id) => $(id).addEventListener('change', draw));
+['showKills', 'showBridges', 'showTraffic', 'showPilots'].forEach((id) => $(id).addEventListener('change', () => { store('show.' + id, $(id).checked); draw(); }));
+['showTraffic', 'showPilots'].forEach((id) => { const v = recall('show.' + id, null); if (v != null) $(id).checked = v; });
 $('showHigh').addEventListener('change', (e) => { state.showHigh = e.target.checked; draw(); });
 $('fit').addEventListener('click', fit);
 function jumpToSearch() {
@@ -1183,10 +1254,68 @@ $('sheetHandle').addEventListener('click', () => setSheet(!$('sidebar').classLis
 // the map resizes when a phone rotates or the browser bar shows/hides
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 
+// ---------- my pilots ----------
+// Live locations of the characters logged in on the Character Export page (website only).
+function pilotsIn(sys) {
+  const here = state.pilots.filter((p) => p.systemId === sys.id);
+  return here.length ? `<div style="color:#4fc3f7">◯ ${here.map((p) => esc(p.name)).join(', ')}</div>` : '';
+}
+let pilotsBusy = false;
+async function loadPilots(force) {
+  if (!window.api.web) {
+    $('pilotStatus').textContent = 'Website version only';
+    $('pilotList').innerHTML = `<p class="note">My Pilots uses your EVE login, which works in the website version of the Gate Planner. Open it in your browser, log your characters in on the Character Export page, and they'll appear here.</p>
+      <div class="btn-row"><button class="ghost small" data-ext="https://fivetalentsrealestate.github.io/New-Eden-Tools/gates/">Open website version</button></div>`;
+    $('pilotList').querySelector('[data-ext]').addEventListener('click', (e) => window.api.openExternal(e.target.dataset.ext));
+    return;
+  }
+  if (!LI.pilotsAvailable()) {
+    $('pilotStatus').textContent = 'No characters logged in';
+    $('pilotList').innerHTML = '<p class="note">Log in your characters on the <a href="../export/" target="_blank" rel="noopener">Character Export</a> page (same website). They\'ll show up here and on the map, and update every minute.</p>';
+    $('showPilotsWrap').hidden = true;
+    return;
+  }
+  if (pilotsBusy) return;
+  if (!force && document.hidden) return;
+  pilotsBusy = true;
+  $('pilotStatus').textContent = 'Updating…';
+  try {
+    state.pilots = await LI.loadPilots();
+    $('showPilotsWrap').hidden = false;
+    $('pilotStatus').textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · every minute`;
+    renderPilots();
+    draw();
+  } catch (e) { $('pilotStatus').textContent = 'Could not update: ' + cleanErr(e); }
+  pilotsBusy = false;
+}
+function renderPilots() {
+  $('pilotList').innerHTML = state.pilots.map((p) => {
+    const s = p.systemId && state.byId.get(p.systemId);
+    const where = p.error ? `<span style="color:var(--danger)">${esc(p.error)}</span>`
+      : s ? `${esc(s.n)} ${secHtml(s.s)} · ${p.docked ? `docked${p.stationName ? ' at ' + esc(p.stationName) : ''}` : 'in space'}` : 'Unknown';
+    const ship = p.shipType ? `${esc(p.shipType)}${p.shipName && p.shipName !== p.name ? ` “${esc(p.shipName)}”` : ''}` : '';
+    const dt = s ? dangerTag(s) : '';
+    return `<div class="pilot">
+      <img src="https://images.evetech.net/characters/${p.id}/portrait?size=64" alt="">
+      <div class="who"><b>${esc(p.name)}</b>${where}<small>${ship} ${dt}</small></div>
+      ${s ? `<div class="acts"><button class="ghost small" data-show="${s.id}">Show</button><button class="ghost small" data-start="${s.id}">Set start</button></div>` : ''}
+    </div>`;
+  }).join('');
+  $('pilotList').querySelectorAll('img').forEach((img) => img.addEventListener('error', () => { img.style.visibility = 'hidden'; }));
+  $('pilotList').querySelectorAll('[data-show]').forEach((b) => b.addEventListener('click', () => select(state.byId.get(+b.dataset.show), { center: true })));
+  $('pilotList').querySelectorAll('[data-start]').forEach((b) => b.addEventListener('click', () => {
+    $('from').value = state.byId.get(+b.dataset.start).n; afterStopsChange(); switchTab('route');
+  }));
+}
+$('pilotRefresh').addEventListener('click', () => loadPilots(true));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadPilots(); });
+
 // ---------- go ----------
 function startLive() {
   loadSov(false);
   loadKills(false);
+  loadPilots();
+  setInterval(() => loadPilots(), 60 * 1000);
   // kills change hourly on ESI; check every 10 minutes while the app is open
   setInterval(() => loadKills(false), 10 * 60 * 1000);
 }

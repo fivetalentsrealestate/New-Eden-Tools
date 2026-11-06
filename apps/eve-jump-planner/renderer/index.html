@@ -11,7 +11,7 @@
   <link rel="icon" href="icon-192.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; img-src 'self' https://images.evetech.net data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://esi.evetech.net; worker-src 'self'; manifest-src 'self'">
+        content="default-src 'self'; img-src 'self' https://images.evetech.net data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://esi.evetech.net https://login.eveonline.com https://zkillboard.com; worker-src 'self'; manifest-src 'self'">
   <title>EVE Jump Planner</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="mobile.css">
@@ -32,6 +32,7 @@
         <button class="tab active" data-tab="jump">Jump planner</button>
         <button class="tab" data-tab="sov">Sovereignty</button>
         <button class="tab" data-tab="system">System</button>
+        <button class="tab" data-tab="pilots">Pilots</button>
       </nav>
 
       <!-- JUMP PLANNER -->
@@ -109,6 +110,15 @@
         <div id="systemInfo" class="empty">Click a system on the map, or search for one above the map.</div>
       </section>
 
+      <!-- MY PILOTS -->
+      <section class="panel" id="panel-pilots">
+        <div class="sov-status">
+          <span id="pilotStatus" class="note">Not loaded</span>
+          <button id="pilotRefresh" class="ghost small" type="button">Refresh</button>
+        </div>
+        <div id="pilotList"></div>
+      </section>
+
       <footer class="data-foot">
         <span id="dataStatus"></span>
         <button id="dataRefresh" class="ghost small" title="Re-download map data from CCP">Update map data</button>
@@ -127,6 +137,9 @@
           <button data-v="2d">Schematic</button>
         </div>
         <label class="inline"><input type="checkbox" id="showGates" checked> Gates</label>
+        <label class="inline"><input type="checkbox" id="showKills" checked> Kills (1h)</label>
+        <label class="inline" title="Stargate jumps in the last hour: how busy each system is"><input type="checkbox" id="showTraffic"> Traffic (1h)</label>
+        <label class="inline" id="showPilotsWrap" hidden><input type="checkbox" id="showPilots" checked> My pilots</label>
         <label class="inline"><input type="checkbox" id="showHigh" checked> High-sec</label>
         <button id="fit" class="ghost" title="Fit map (F)">Fit</button>
       </div>
@@ -150,6 +163,7 @@
 
   <script src="web-api.js"></script>
   <script src="planner.js"></script>
+  <script src="live-intel.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -179,3 +179,22 @@ button.small { padding: 3px 8px; font-size: 12px; }
 
 /* the hidden attribute must win over display rules like label { display: flex } */
 [hidden] { display: none !important; }
+
+/* live intel: activity tags, danger ratings and my pilots (same look as the Gate Planner) */
+.tag { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.tag.pod { color: #ff9aa4; border-color: #5a2630; background: #2a1519; }
+.tag.kill { color: #ffcf8a; border-color: #5a4326; background: #2a2015; }
+.tag.danger { color: #fff; border-color: #ff5d6c; background: #b4232f; font-weight: 600; }
+.tag.caution { color: #ffd98a; border-color: #6a5320; background: #2d2410; }
+.danger-box { border: 1px solid #5a2630; background: #22121a; border-radius: var(--radius); padding: 8px 10px; margin: 8px 0; font-size: 12.5px; }
+.danger-box.calm { border-color: #1f5a3c; background: #0f2017; color: #9fe0bb; }
+.danger-box .h { font-weight: 600; margin-bottom: 4px; }
+.danger-box .row { margin: 3px 0; cursor: pointer; }
+.danger-box .row:hover { text-decoration: underline; }
+.danger-box .why { color: var(--muted); }
+.pilot { display: flex; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; margin-bottom: 8px; }
+.pilot img { width: 40px; height: 40px; border-radius: 6px; background: #000; flex: 0 0 auto; }
+.pilot .who { flex: 1; min-width: 0; font-size: 12.5px; }
+.pilot .who b { display: block; font-size: 13px; }
+.pilot .who small { color: var(--muted); display: block; overflow-wrap: anywhere; }
+.pilot .acts { display: flex; flex-direction: column; gap: 4px; }
