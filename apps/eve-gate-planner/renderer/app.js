@@ -1,4 +1,4 @@
-/* global Gates, SpecialSystems, LiveIntel */
+/* global Gates, SpecialSystems, LiveIntel, OreInfo */
 'use strict';
 
 const G = window.Gates;
@@ -872,6 +872,7 @@ function renderSystem(sys) {
       ${state.trig.has(sys.id) ? '<span class="k">Invasion</span><span style="color:#ff7b72">Triglavian minor victory</span>' : ''}
       ${state.eden.has(sys.id) ? '<span class="k">Invasion</span><span style="color:#7fb8ff">EDENCOM system</span>' : ''}
     </div>
+    ${oreHtml(sys, gates)}
     <div>
       <div class="note" style="margin-bottom:6px">Connections (${gates.length})</div>
       <div class="gate-list">${gates.map((g) => `<span class="link" data-sys="${g.s.id}">${g.jb ? '⇢ ' : ''}${esc(g.s.n)}</span>`).join('') || '<span class="note">None</span>'}</div>
@@ -889,6 +890,10 @@ function renderSystem(sys) {
       <button class="ghost small" data-ext="https://zkillboard.com/system/${sys.id}/">zKillboard</button>
     </div>`;
   el.querySelectorAll('[data-sys]').forEach((a) => a.addEventListener('click', () => select(state.byId.get(+a.dataset.sys), { center: true })));
+  OreInfo.beltCount(sys.id).then((n) => {
+    const b = el.querySelector('#beltCount');
+    if (b && state.selected === sys) b.textContent = n == null ? 'unknown' : n === 0 ? 'None' : `${n} asteroid belt${n === 1 ? '' : 's'}`;
+  });
   el.querySelectorAll('[data-alliance]').forEach((a) => a.addEventListener('click', () => {
     setColorMode('sov'); toggleAlliance(+a.dataset.alliance, true); switchTab('sov');
   }));
@@ -1253,6 +1258,30 @@ function setSheet(open) { $('sidebar').classList.toggle('open', open); }
 $('sheetHandle').addEventListener('click', () => setSheet(!$('sidebar').classList.contains('open')));
 // the map resizes when a phone rotates or the browser bar shows/hides
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+
+// ---------- asteroids & ore ----------
+const ORE_COLORS = { Simple: '#9fb3c8', Coherent: '#6fdc8c', Variegated: '#ffd166', Complex: '#ff9f6b', Mercoxit: '#d79bff' };
+function oreChip(ore) {
+  const g = OreInfo.group(ore);
+  return `<span class="tag ore" style="color:${ORE_COLORS[g] || 'var(--text)'};border-color:${ORE_COLORS[g] || 'var(--line)'}55" title="${g ? esc(g) + ' ore: uses ' + esc(g) + ' mining crystals' : ''}">${esc(ore)}</span>`;
+}
+function oreHtml(sys, gates) {
+  const region = state.regions[sys.r] || '';
+  const belts = OreInfo.beltOres(sys.s, region);
+  const border = Math.round(sys.s * 10) / 10 === 0.5 && gates.some((g) => !g.jb && Math.round(g.s.s * 10) / 10 < 0.5);
+  const sites = OreInfo.oreSites(sys.s, region, border);
+  const groups = [...new Set(belts.ores.map((o) => OreInfo.group(o)).filter(Boolean))];
+  return `<div class="ore-box">
+    <div class="h">Asteroids &amp; ore</div>
+    <div class="kv">
+      <span class="k">Belts</span><span id="beltCount" class="note">checking…</span>
+      <span class="k">Belt ores</span><span>${belts.ores.length ? belts.ores.map(oreChip).join(' ') : '<span class="note">—</span>'}</span>
+      ${groups.length ? `<span class="k">Crystals</span><span class="note">${groups.map((g) => esc(g)).join(', ')} Asteroid Mining Crystals</span>` : ''}
+      <span class="k">Ore sites</span><span class="note">${sites.length ? sites.map(esc).join('<br>') : 'None expected'}</span>
+    </div>
+    <div class="note">Estimate from security and region${belts.note ? ` · ${esc(belts.note)}` : ''}. CCP doesn't publish live belt contents, and ore sites spawn at random, so check the Probe Scanner's anomalies when you arrive.</div>
+  </div>`;
+}
 
 // ---------- my pilots ----------
 // Live locations of the characters logged in on the Character Export page (website only).
