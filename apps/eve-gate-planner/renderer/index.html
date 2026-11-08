@@ -33,6 +33,7 @@
         <button class="tab active" data-tab="route">Route</button>
         <button class="tab" data-tab="sov">Sovereignty</button>
         <button class="tab" data-tab="system">System</button>
+        <button class="tab" data-tab="ore">Ore</button>
         <button class="tab" data-tab="pilots">Pilots</button>
       </nav>
 
@@ -109,6 +110,21 @@
       <!-- SYSTEM -->
       <section class="panel" id="panel-system">
         <div id="systemInfo" class="empty">Click a system on the map, or search for one above the map.</div>
+      </section>
+
+      <!-- ORE FINDER -->
+      <section class="panel" id="panel-ore">
+        <p class="note">Pick the ores you want. Matching systems light up on the map and are listed below, nearest first.</p>
+        <div id="oreChips" class="ore-chips"></div>
+        <div class="ore-opts">
+          <label class="inline"><input type="checkbox" id="oreSites"> Include ore anomalies (rare)</label>
+          <label class="inline"><input type="checkbox" id="oreHigh" checked> High</label>
+          <label class="inline"><input type="checkbox" id="oreLow"> Low</label>
+          <label class="inline"><input type="checkbox" id="oreNull"> Null</label>
+          <label class="inline"><input type="checkbox" id="oreMap" checked> Show on map</label>
+        </div>
+        <div class="btn-row"><button id="oreClear" class="ghost small" type="button">Clear selection</button></div>
+        <div id="oreResults"></div>
       </section>
 
       <!-- MY PILOTS -->

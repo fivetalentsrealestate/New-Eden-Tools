@@ -198,6 +198,9 @@ function ingest(u) {
   applyLayout();
   fit();
   restoreForm();
+  ore.idx = null;
+  renderOreChips();
+  renderOreResults();
 }
 
 function applyBridgeText(text) {
@@ -545,6 +548,20 @@ function render() {
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   }
 
+  // Ore finder matches
+  if (ore.sel.size && $('oreMap').checked) {
+    for (const s of state.systems) {
+      if (!visible(s) || !onScreen(s.sx, s.sy)) continue;
+      const m = oreMatch(s);
+      if (!m) continue;
+      ctx.strokeStyle = m.kind === 'belt' ? 'rgba(111,220,140,.95)' : 'rgba(255,209,102,.9)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash(m.kind === 'belt' ? [] : [3, 3]);
+      ctx.beginPath(); ctx.arc(s.sx, s.sy, 8, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
   // My pilots
   if ($('showPilots').checked && state.pilots.length) {
     const at = new Map();
@@ -618,6 +635,7 @@ function renderLegend() {
   if ($('showKills').checked) extra.push('<span class="lg"><span class="dot" style="background:rgba(255,60,80,.8)"></span>kills, last hour</span>');
   if ($('showTraffic').checked) extra.push('<span class="lg"><span class="dot" style="background:rgba(90,170,255,.8)"></span>traffic (jumps), last hour</span>');
   if ($('showPilots').checked && state.pilots.length) extra.push('<span class="lg" style="color:#4fc3f7">◯ my pilots</span>');
+  if (ore.sel.size && $('oreMap').checked) extra.push('<span class="lg" style="color:#6fdc8c">◯ ore in belts</span>', '<span class="lg" style="color:#ffd166">◌ ore anomalies only</span>');
   if ($('showBridges').checked && state.bridges.length) extra.push('<span class="lg"><span class="dot" style="background:#4fd18b;border-radius:2px;height:2px;width:14px"></span>jump bridge</span>');
   if ($('optTrig').checked) extra.push('<span class="lg" style="color:#ff7b72">▲ Triglavian</span>');
   if ($('optEden').checked) extra.push('<span class="lg" style="color:#7fb8ff">◆ EDENCOM</span>');
@@ -981,6 +999,7 @@ $('wpInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') addWayp
 
 function afterStopsChange() {
   saveForm();
+  if (ore.sel.size) renderOreResults();
   if (state.route && findSystem($('from').value) && findSystem($('to').value)) plan(true);
   else draw();
 }
@@ -1282,6 +1301,73 @@ function oreHtml(sys, gates) {
     <div class="note">Estimate from security and region${belts.note ? ` · ${esc(belts.note)}` : ''}. CCP doesn't publish live belt contents, and ore sites spawn at random, so check the Probe Scanner's anomalies when you arrive.</div>
   </div>`;
 }
+
+// ---------- ore finder ----------
+// Highlights systems whose belts (and optionally ore anomalies) can hold the selected ores.
+const ore = { sel: new Set(recall('ore.sel', [])), idx: null };
+['oreSites', 'oreHigh', 'oreLow', 'oreNull', 'oreMap'].forEach((id) => { const v = recall('ore.' + id, null); if (v != null) $(id).checked = v; });
+function oreIndex() {
+  if (ore.idx) return ore.idx;
+  ore.idx = new Map();
+  for (const s of state.systems) {
+    const region = state.regions[s.r] || '';
+    const border = Math.round(s.s * 10) / 10 === 0.5 && (state.graph.get(s.id) || []).some((e) => e.type !== 'bridge' && state.byId.get(e.to) && Math.round(state.byId.get(e.to).s * 10) / 10 < 0.5);
+    ore.idx.set(s.id, { belt: new Set(OreInfo.beltOres(s.s, region).ores), site: new Set(OreInfo.siteOres(s.s, region, border)) });
+  }
+  return ore.idx;
+}
+// 'belt' if a selected ore is in the belts, 'site' if only via anomalies, else null
+function oreMatch(sys) {
+  if (!ore.sel.size) return null;
+  const sec = Math.round(sys.s * 10) / 10;
+  const band = sec >= 0.5 ? 'oreHigh' : sys.s > 0 ? 'oreLow' : 'oreNull';
+  if (!$(band).checked) return null;
+  const e = oreIndex().get(sys.id);
+  if (!e) return null;
+  const hit = [...ore.sel].filter((o) => e.belt.has(o));
+  if (hit.length) return { kind: 'belt', ores: hit };
+  if ($('oreSites').checked) { const h2 = [...ore.sel].filter((o) => e.site.has(o)); if (h2.length) return { kind: 'site', ores: h2 }; }
+  return null;
+}
+function renderOreChips() {
+  $('oreChips').innerHTML = OreInfo.ALL_ORES.map((o) => {
+    const c = ORE_COLORS[OreInfo.group(o)] || '#9fb3c8';
+    const on = ore.sel.has(o);
+    return `<button type="button" class="ore-chip${on ? ' on' : ''}" data-ore="${esc(o)}" style="border-color:${c}${on ? '' : '66'};${on ? `background:${c}` : `color:${c}`}" title="${esc(OreInfo.group(o) || '')}">${esc(o)}</button>`;
+  }).join('');
+  $('oreChips').querySelectorAll('[data-ore]').forEach((b) => b.addEventListener('click', () => {
+    const o = b.dataset.ore; if (ore.sel.has(o)) ore.sel.delete(o); else ore.sel.add(o);
+    store('ore.sel', [...ore.sel]); renderOreChips(); renderOreResults(); draw();
+  }));
+}
+function oreOrigin() { return findSystem($('from').value) || state.selected || null; }
+function renderOreResults() {
+  const el = $('oreResults');
+  if (!state.systems.length) { el.innerHTML = ''; return; }
+  if (!ore.sel.size) { el.innerHTML = '<p class="note">No ores selected.</p>'; return; }
+  const origin = oreOrigin();
+  const dist = new Map();
+  if (origin) {
+    dist.set(origin.id, 0); const q = [origin.id];
+    for (let i = 0; i < q.length; i++) {
+      const d = dist.get(q[i]);
+      for (const e of state.graph.get(q[i]) || []) if (e.type !== 'bridge' && !dist.has(e.to)) { dist.set(e.to, d + 1); q.push(e.to); }
+    }
+  }
+  const rows = [];
+  for (const s of state.systems) { const m = oreMatch(s); if (m) rows.push({ s, m, d: dist.has(s.id) ? dist.get(s.id) : Infinity }); }
+  rows.sort((a, b) => a.d - b.d || (a.m.kind === 'belt' ? 0 : 1) - (b.m.kind === 'belt' ? 0 : 1) || a.s.n.localeCompare(b.s.n));
+  const shown = rows.slice(0, 60);
+  el.innerHTML = `<div class="note" style="margin:6px 0">${rows.length} matching system${rows.length === 1 ? '' : 's'}${origin ? `, nearest to <b>${esc(origin.n)}</b>` : ' (select a system or set a start to sort by distance)'}${rows.length > 60 ? ' · showing 60' : ''}</div>
+    ${shown.map((r) => `<div class="ore-row" data-sys="${r.s.id}">
+      <span>${esc(r.s.n)} ${secHtml(r.s.s)} ${dangerTag(r.s)}<small>${esc(state.regions[r.s.r] || '')} · ${r.m.kind === 'belt' ? 'belts' : 'ore anomalies only'}: ${r.m.ores.map(esc).join(', ')}</small></span>
+      <span class="j">${r.d === Infinity ? '—' : r.d === 0 ? 'here' : r.d + ' j'}</span></div>`).join('')}
+    <p class="note" style="margin-top:8px">Estimates from security and region (EVE University ore tables). Ore anomalies are rare and random. Jumps are by stargate, ignoring your avoid settings.</p>`;
+  el.querySelectorAll('[data-sys]').forEach((row) => row.addEventListener('click', () => select(state.byId.get(+row.dataset.sys), { center: true, stay: true })));
+}
+['oreSites', 'oreHigh', 'oreLow', 'oreNull', 'oreMap'].forEach((id) => $(id).addEventListener('change', () => { store('ore.' + id, $(id).checked); renderOreResults(); draw(); }));
+$('oreClear').addEventListener('click', () => { ore.sel.clear(); store('ore.sel', []); renderOreChips(); renderOreResults(); draw(); });
+document.querySelector('.tab[data-tab=ore]').addEventListener('click', () => renderOreResults());
 
 // ---------- my pilots ----------
 // Live locations of the characters logged in on the Character Export page (website only).

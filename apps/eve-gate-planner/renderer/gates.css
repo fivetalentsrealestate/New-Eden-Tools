@@ -80,3 +80,13 @@ code { white-space: nowrap; }
 .ore-box .h { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
 .ore-box .kv { margin-bottom: 6px; }
 .tag.ore { display: inline-block; margin: 1px 2px 1px 0; }
+
+/* ore finder */
+.ore-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+.ore-chip { font-size: 12px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; font-weight: 500; }
+.ore-chip.on { color: #03141f; font-weight: 600; }
+.ore-opts { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0; font-size: 12.5px; }
+.ore-row { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 12.5px; }
+.ore-row:hover { background: rgba(255,255,255,.03); }
+.ore-row small { color: var(--muted); display: block; }
+.ore-row .j { color: var(--muted); white-space: nowrap; }

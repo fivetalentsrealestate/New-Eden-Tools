@@ -21,7 +21,7 @@
     Kernite: 'Coherent', Omber: 'Coherent', Jaspet: 'Coherent', Hemorphite: 'Coherent', Hedbergite: 'Coherent', Ytirium: 'Coherent',
     Gneiss: 'Variegated', 'Dark Ochre': 'Variegated', Crokite: 'Variegated',
     Bistot: 'Complex', Arkonor: 'Complex', Spodumain: 'Complex',
-    Mercoxit: 'Mercoxit'
+    Mercoxit: 'Mercoxit', Bezdnacine: 'Pochven', Rakovene: 'Pochven', Talassonite: 'Pochven'
   };
 
   function beltOres(sec, region) {
@@ -70,6 +70,25 @@
     return out;
   }
 
+  // Ores that ore anomalies can bring to a system (same rules as oreSites).
+  function siteOres(sec, region, bordersLowsec) {
+    const s = Math.round(sec * 10) / 10;
+    if (region === 'Pochven') return ['Bezdnacine', 'Rakovene', 'Talassonite', 'Spodumain', 'Mercoxit'];
+    if (s >= 0.5) {
+      const out = [];
+      if (s <= 0.8) out.push('Omber', 'Kernite');
+      if (s === 0.5 && bordersLowsec) out.push('Mordunium', 'Ytirium');
+      return out;
+    }
+    if (sec > 0) return ['Jaspet', 'Gneiss', 'Dark Ochre', 'Crokite', 'Hedbergite', 'Hemorphite', 'Mordunium'];
+    return [];
+  }
+
+  const ALL_ORES = ['Veldspar', 'Scordite', 'Pyroxeres', 'Plagioclase', 'Mordunium',
+    'Kernite', 'Omber', 'Jaspet', 'Hemorphite', 'Hedbergite', 'Ytirium',
+    'Gneiss', 'Dark Ochre', 'Crokite', 'Bistot', 'Arkonor', 'Spodumain', 'Mercoxit',
+    'Bezdnacine', 'Rakovene', 'Talassonite'];
+
   // Asteroid belt count from ESI, cached per session.
   const beltCache = new Map();
   function beltCount(id) {
@@ -82,5 +101,5 @@
     return beltCache.get(id);
   }
 
-  window.OreInfo = { beltOres, oreSites, beltCount, group: (ore) => GROUP[ore] || null, factionOf };
+  window.OreInfo = { beltOres, oreSites, siteOres, ALL_ORES, beltCount, group: (ore) => GROUP[ore] || null, factionOf };
 })();

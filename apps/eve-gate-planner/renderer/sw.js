@@ -1,7 +1,7 @@
 // Offline support for the installed web app.
 // App files and the map data are served from cache instantly and refreshed in the background.
 // Live data (ESI sovereignty / kills, logos) always goes to the network.
-const CACHE = 'nedt-' + self.registration.scope + '-v3';
+const CACHE = 'nedt-' + self.registration.scope + '-v4';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
