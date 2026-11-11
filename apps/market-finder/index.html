@@ -79,6 +79,21 @@ td.price{font-weight:600}
 .qhead button{background:none;border:1px solid var(--line);border-radius:3px;padding:1px 7px;color:var(--dim);cursor:pointer;font-size:11px}
 .qhead button:hover{color:var(--text);border-color:var(--accent)}
 footer{color:var(--dim);font-size:11px;padding:12px 0 0}
+.dtabs{display:flex;gap:16px;border-bottom:1px solid var(--line);margin:2px 0 8px}
+.dtabs button{background:none;border:0;border-bottom:2px solid transparent;padding:5px 0;color:var(--dim);cursor:pointer}
+.dtabs button.on{color:var(--text);border-color:var(--accent)}
+.facts{display:flex;flex-wrap:wrap;gap:6px 18px;margin:4px 0 10px}
+.facts div{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 9px}
+.facts b{display:block;color:var(--dim);font-weight:400;font-size:11px}
+.desc{white-space:pre-wrap;color:#b9c2cc;max-width:900px;margin:0 0 10px}
+.attrbar{display:flex;gap:10px;align-items:center;margin:10px 0 6px;flex-wrap:wrap}
+.attrbar input{width:220px}
+.atbl{max-height:none}
+.atbl td.v{text-align:right;font-weight:600}
+.atbl tr.grp td{background:var(--panel2);color:var(--accent);font-size:12px;font-weight:600;padding-top:7px}
+.skills{margin:0 0 10px;padding-left:18px}
+.skills li{margin:2px 0}
+.skills a{color:var(--accent);cursor:pointer;text-decoration:none}
 @media (max-width:800px){
   .main{grid-template-columns:1fr;grid-template-rows:260px 1fr}
   aside{border-right:0;border-bottom:1px solid var(--line)}
@@ -117,12 +132,19 @@ footer{color:var(--dim);font-size:11px;padding:12px 0 0}
   <div class="crumb" id="crumb">Pick an item on the left</div>
   <div class="title"><img id="icon" alt="" style="display:none" onerror="this.style.display='none'"><h2 id="iname">—</h2><button id="star" class="star" title="Add to Quickbar" style="display:none">☆ Add to Quickbar</button></div>
   <div class="bar"><i id="prog"></i></div>
+  <div class="dtabs"><button id="dvOrders" class="on">Market orders</button><button id="dvAttrs">Attributes</button></div>
+  <div id="vOrders">
   <div class="status" id="status">Enter your current system, then choose an item. Orders are pulled live from every region.</div>
   <h3>Sellers</h3>
   <div class="tbl"><table id="sellT"></table></div>
   <h3>Buyers</h3>
   <div class="tbl"><table id="buyT"></table></div>
-  <footer>Live data from CCP's public ESI API (cached by CCP up to ~5 min). Jumps are computed from the stargate map in your browser. Player-structure names are private, so they show as "Player structure". Map &amp; item list from the EVE static data export; brand-new items can still be found by typing the exact name and pressing Enter.</footer>
+  </div>
+  <div id="vAttrs" hidden>
+  <div class="status" id="astatus">Pick an item to see its attributes.</div>
+  <div id="attrBody"></div>
+  </div>
+  <footer>Live data from CCP's public ESI API (cached by CCP up to ~5 min). Attributes come live from ESI too. Jumps are computed from the stargate map in your browser. Player-structure names are private, so they show as "Player structure". Map &amp; item list from the EVE static data export; brand-new items can still be found by typing the exact name and pressing Enter.</footer>
 </section>
 </div>
 </div>
@@ -251,6 +273,7 @@ async function selectType(id,name,gid){
   current={id,name,gid}; store.set('lastType',JSON.stringify(current)); renderList(); updStar();
   $('iname').textContent=name; $('crumb').textContent=gid?path(gid).join(' / '):'';
   const ic=$('icon'); ic.style.display=''; ic.src=`https://images.evetech.net/types/${id}/icon?size=64`;
+  if(view==='attrs') loadAttrs(); else attrsFor=null;
   const my=++reqId; const regions=Object.keys(REG); let done=0, failed=0; const all=[];
   setStatus(`Searching ${regions.length} regions…`); $('prog').style.width='0';
   await pool(regions,12,async rid=>{
@@ -330,6 +353,98 @@ for(const id of ['origin','maxj','route','hsonly']) $(id).addEventListener(id===
 // restore
 for(const id of ['origin','maxj','route']){ const v=store.get('opt_'+id); if(v!==null) $(id).value=v; }
 if(store.get('opt_hsonly')==='true') $('hsonly').checked=true;
+
+// ---- attributes (live from ESI: /universe/types and /dogma/attributes, names cached in this browser) ----
+let view=store.get('view')==='attrs'?'attrs':'orders', attrsFor=null, attrReq=0;
+function setView(v){ view=v; store.set('view',v); $('dvOrders').classList.toggle('on',v==='orders'); $('dvAttrs').classList.toggle('on',v==='attrs');
+  $('vOrders').hidden=v!=='orders'; $('vAttrs').hidden=v!=='attrs'; if(v==='attrs') loadAttrs(); }
+$('dvOrders').onclick=()=>setView('orders'); $('dvAttrs').onclick=()=>setView('attrs');
+const attrMeta=new Map(), groupNames=new Map();
+function aMeta(id){ if(attrMeta.has(id)) return attrMeta.get(id); try{ const v=JSON.parse(store.get('attr_'+id)||'null'); if(v){ attrMeta.set(id,v); return v; } }catch(e){} return null; }
+async function loadMeta(ids){
+  const need=ids.filter(id=>!aMeta(id));
+  await pool(need,10,async id=>{ try{ const {data:a}=await getJSON(`${ESI}/dogma/attributes/${id}/?datasource=tranquility`);
+    const m={n:a.display_name||'',r:a.name||'',u:a.unit_id||0,p:!!a.published,h:a.high_is_good!==false};
+    attrMeta.set(id,m); store.set('attr_'+id,JSON.stringify(m)); }catch(e){} });
+}
+async function groupName(id){ if(groupNames.has(id)) return groupNames.get(id);
+  try{ const {data}=await getJSON(`${ESI}/universe/groups/${id}/?datasource=tranquility`); groupNames.set(id,data.name); return data.name; }catch(e){ return 'Group '+id; } }
+function num(v,d){ return (+v).toLocaleString(undefined,{maximumFractionDigits:d==null?2:d}); }
+const SIZE={1:'Small',2:'Medium',3:'Large',4:'X-Large'};
+// EVE unit ids -> how to show the value
+function fmtVal(v,u){
+  switch(u){
+    case 1: return num(v)+' m'; case 2: return num(v)+' kg'; case 3: case 123: return num(v)+' s'; case 8: return num(v)+' m²';
+    case 9: return num(v)+' m³'; case 10: return num(v)+' m/s'; case 11: return num(v)+' m/s²';
+    case 101: return num(v/1000)+' s'; case 102: return num(v)+' mm'; case 104: return num(v,3)+' x'; case 105: case 121: return num(v)+' %';
+    case 106: return num(v)+' tf'; case 107: return num(v)+' MW';
+    case 108: return num((1-v)*100)+' %'; case 109: return num((v-1)*100)+' %'; case 111: return num((1-v)*100)+' %';
+    case 112: return num(v,4)+' rad/s'; case 113: return num(v)+' HP'; case 114: return num(v)+' GJ'; case 117: return SIZE[v]||num(v);
+    case 118: return num(v)+' ore units'; case 120: return num(v)+' points'; case 122: return num(v)+' slots'; case 124: return num(v)+' %';
+    case 125: return num(v)+' N'; case 126: return num(v)+' ly'; case 127: return num(v*100)+' %'; case 128: return num(v)+' Mbit/s';
+    case 129: return num(v)+' h'; case 133: return num(v)+' ISK'; case 134: return num(v)+' m³/h'; case 135: return num(v)+' AU';
+    case 137: return v?'Yes':'No'; case 139: return '+'+num(v); case 140: return 'Level '+num(v,0); case 141: return num(v,0)+' hardpoints';
+    default: return num(v);
+  }
+}
+// rough sections so long lists are easier to read (keyed on CCP's internal attribute name)
+const SECTIONS=[['Fitting',/^(cpu|power|upgrade|hiSlots|medSlots|lowSlots|rigSlots|rigSize|launcherSlots|turretSlots|maxSubSystems|serviceSlots|upgradeCapacity|cpuOutput|powerOutput|calibration)/i],
+  ['Shield',/^shield/i],['Armor',/^armor/i],['Structure / hull',/^(hp$|structure|emDamageResonance|thermalDamageResonance|kineticDamageResonance|explosiveDamageResonance)/i],
+  ['Capacitor',/^(capacitor|rechargeRate)/i],['Targeting',/(maxTargetRange|maxLockedTargets|scanResolution|scan.*Strength|signatureRadius)/i],
+  ['Navigation',/(maxVelocity|agility|mass$|warpSpeed|warpCapacitor|baseWarpSpeed|jumpDrive|align)/i],
+  ['Drones',/^drone/i],['Weapons',/(damage|rateOfFire|speed$|optimal|falloff|tracking|explosion|missile|charge|maxRange|aoe)/i],
+  ['Mining',/(mining|yield|crystal|ore|ice|gas|waste)/i],['Cargo / bays',/(capacity|Hold|Bay)/i],['Cloaking',/cloak/i]];
+function sectionOf(m){ const r=m.r||''; for(const [n,re] of SECTIONS) if(re.test(r)) return n; return 'Other'; }
+const SKILL_ATTR=[[182,277],[183,278],[184,279],[1285,1286],[1289,1287],[1290,1288]];
+const SKILL_IDS=new Set(SKILL_ATTR.flat());
+const ROMAN=['','I','II','III','IV','V'];
+function cleanDesc(s){ const t=document.createElement('div'); t.innerHTML=String(s||'').replace(/<br\s*\/?>/gi,'\n'); return (t.textContent||'').trim(); }
+
+async function loadAttrs(){
+  if(!current){ $('astatus').textContent='Pick an item to see its attributes.'; $('attrBody').innerHTML=''; return; }
+  if(attrsFor===current.id) return; attrsFor=current.id;
+  const my=++attrReq, it=current;
+  $('astatus').textContent='Loading attributes…'; $('attrBody').innerHTML='';
+  let t; try{ t=(await getJSON(`${ESI}/universe/types/${it.id}/?datasource=tranquility`)).data; }catch(e){ t=null; }
+  if(my!==attrReq) return;
+  if(!t||!t.type_id){ $('astatus').textContent='Could not load this item from ESI. Try again in a moment.'; attrsFor=null; return; }
+  const da=t.dogma_attributes||[]; const vals=new Map(da.map(a=>[a.attribute_id,a.value]));
+  await loadMeta(da.map(a=>a.attribute_id));
+  if(my!==attrReq) return;
+  // required skills
+  const sk=SKILL_ATTR.filter(([s])=>vals.has(s)).map(([s,l])=>({id:vals.get(s),lvl:vals.get(l)||1}));
+  const unknown=sk.map(s=>s.id).filter(id=>!typeById.has(id)&&!nameCache.has(id));
+  if(unknown.length){ try{ const r=await fetch(ESI+'/universe/names/?datasource=tranquility',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(unknown)}); if(r.ok) for(const n of await r.json()) nameCache.set(n.id,n.name); }catch(e){} }
+  const tname=id=>(typeById.get(id)||[])[1]||nameCache.get(id)||('Type '+id);
+  // value cells; resolve group/type references
+  const rows=[];
+  for(const a of da){ if(SKILL_IDS.has(a.attribute_id)) continue; const m=aMeta(a.attribute_id); if(!m||!m.p||!m.n) continue;
+    let v; if(m.u===115) v=await groupName(a.value); else if(m.u===116) v=tname(a.value); else v=fmtVal(a.value,m.u);
+    rows.push({n:m.n,v:String(v),s:sectionOf(m)}); }
+  if(my!==attrReq) return;
+  const order=SECTIONS.map(s=>s[0]).concat('Other');
+  rows.sort((a,b)=>order.indexOf(a.s)-order.indexOf(b.s)||a.n.localeCompare(b.n));
+  const facts=[['Volume',num(t.volume)+' m³'],t.packaged_volume&&t.packaged_volume!==t.volume?['Packaged',num(t.packaged_volume)+' m³']:null,
+    t.mass?['Mass',num(t.mass)+' kg']:null,t.capacity?['Capacity',num(t.capacity)+' m³']:null,t.portion_size>1?['Portion size',num(t.portion_size)]:null,
+    t.group_id?['Group',esc(await groupName(t.group_id))]:null].filter(Boolean);
+  if(my!==attrReq) return;
+  const desc=cleanDesc(t.description);
+  $('attrBody').innerHTML=`<div class="facts">${facts.map(([k,v])=>`<div><b>${k}</b>${v}</div>`).join('')}</div>`+
+    (sk.length?`<h3>Required skills</h3><ul class="skills">${sk.map(s=>`<li><a data-sk="${s.id}">${esc(tname(s.id))}</a> ${ROMAN[s.lvl]||s.lvl}</li>`).join('')}</ul>`:'')+
+    (desc?`<h3>Description</h3><div class="desc">${esc(desc)}</div>`:'')+
+    (rows.length?`<div class="attrbar"><h3 style="margin:0">Attributes</h3><input id="afilter" type="text" placeholder="Filter attributes…" autocomplete="off"><button class="copy" id="acopy">copy all</button></div>
+      <div class="tbl atbl"><table id="attrT"></table></div>`:'');
+  const draw=()=>{ const q=(($('afilter')||{}).value||'').trim().toLowerCase(); let last=null;
+    const r=rows.filter(x=>!q||x.n.toLowerCase().includes(q)||x.v.toLowerCase().includes(q));
+    $('attrT').innerHTML='<tbody>'+(r.length?r.map(x=>{ const g=x.s!==last?`<tr class="grp"><td colspan="2">${x.s}</td></tr>`:''; last=x.s; return g+`<tr><td>${esc(x.n)}</td><td class="v">${esc(x.v)}</td></tr>`; }).join(''):'<tr><td class="empty">No attribute matches.</td></tr>')+'</tbody>'; };
+  if(rows.length){ draw(); $('afilter').addEventListener('input',draw);
+    $('acopy').onclick=()=>{ const txt=it.name+'\n'+facts.map(([k,v])=>k+': '+v.replace(/<[^>]+>/g,'')).join('\n')+'\n'+rows.map(x=>x.n+': '+x.v).join('\n');
+      navigator.clipboard&&navigator.clipboard.writeText(txt); $('acopy').textContent='copied'; setTimeout(()=>$('acopy').textContent='copy all',1000); }; }
+  $('astatus').textContent=rows.length?`${rows.length} attributes · live from CCP's ESI`:(da.length?'This item has no published attributes.':'This item has no attributes.');
+}
+$('attrBody').addEventListener('click',e=>{ const a=e.target.closest('a[data-sk]'); if(!a) return; const id=+a.dataset.sk; const t=typeById.get(id);
+  selectType(id, t?t[1]:a.textContent, t?t[2]:null); });
+setView(view);
 draw('sell',[]); draw('buy',[]);
 renderList();
 try{ const lt=JSON.parse(store.get('lastType')||'null'); if(lt) selectType(lt.id,lt.name,lt.gid); }catch(e){}
