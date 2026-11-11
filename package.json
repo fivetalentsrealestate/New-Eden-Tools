@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node apps/eve-jump-planner/scripts/test-planner.js && node apps/eve-gate-planner/scripts/test-gates.js",
     "build": "node scripts/build-site.js",
-    "preview": "node scripts/preview.js"
+    "preview": "node scripts/preview.js",
+    "set-version": "node scripts/set-version.js"
   },
   "dependencies": {
     "yauzl": "^3.2.0"

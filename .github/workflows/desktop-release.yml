@@ -1,7 +1,9 @@
 name: Build Windows installers
 
-# Builds the EVE Jump Planner and EVE Gate Planner installers on a Windows machine and
-# attaches them to a GitHub Release, so anyone can download them from the Releases page.
+# Builds the EVE Jump Planner, EVE Gate Planner and New Eden Market Finder installers on a
+# Windows machine and attaches them to a GitHub Release, so anyone can download them from the
+# Releases page. The release also carries each app's update file (<app>.yml + .blockmap), which
+# the installed apps check on startup to update themselves.
 # Runs whenever the desktop apps change on main (the release is named after the app version
 # in apps/eve-jump-planner/package.json, so bump that to publish a new release), when a
 # version tag like v1.0.1 is pushed, or on demand from the Actions tab.
@@ -12,6 +14,7 @@ on:
     paths:
       - 'apps/eve-jump-planner/**'
       - 'apps/eve-gate-planner/**'
+      - 'apps/eve-market-finder/**'
       - '.github/workflows/desktop-release.yml'
   workflow_dispatch:
 
@@ -23,7 +26,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        app: [eve-jump-planner, eve-gate-planner]
+        app: [eve-jump-planner, eve-gate-planner, eve-market-finder]
     defaults:
       run:
         working-directory: apps/${{ matrix.app }}
@@ -48,7 +51,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app }}
-          path: apps/${{ matrix.app }}/dist/*Setup*.exe
+          path: |
+            apps/${{ matrix.app }}/dist/*Setup*.exe
+            apps/${{ matrix.app }}/dist/*Setup*.exe.blockmap
+            apps/${{ matrix.app }}/dist/*-planner.yml
+            apps/${{ matrix.app }}/dist/market-finder.yml
           if-no-files-found: error
 
   release:
@@ -77,9 +84,15 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: New Eden Tools ${{ steps.tag.outputs.tag }}
           make_latest: true
-          files: installers/*.exe
+          files: |
+            installers/*.exe
+            installers/*.blockmap
+            installers/*.yml
           body: |
-            Windows desktop installers for **EVE Jump Planner** and **EVE Gate Planner**.
+            Windows desktop installers for **EVE Jump Planner**, **EVE Gate Planner** and **New Eden Market Finder**.
+
+            Already installed v1.4.0 or later? You don't need to download anything: the apps check for
+            updates when they start and offer to restart when a new version is ready.
 
             1. Download the `Setup` file for the app you want (under **Assets** below).
             2. Double-click it. Windows may show "Windows protected your PC", because the

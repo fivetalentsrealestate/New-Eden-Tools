@@ -3,7 +3,8 @@
 const { app, BrowserWindow, ipcMain, shell, clipboard } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { getUniverseData, loadCached } = require('./lib/sde');
+const { getUniverseData, loadCached, fetchPrebuilt } = require('./lib/sde');
+const { startAutoUpdate } = require('./lib/updater');
 const { fetchSovereignty, loadCachedSov, fetchKills, loadCachedKills } = require('./lib/esi');
 
 const dataDir = () => path.join(app.getPath('userData'), 'data');
@@ -31,6 +32,7 @@ function createWindow() {
     if (/^https:\/\//.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
+  startAutoUpdate(win, 'gate-planner');
 }
 
 const progress = (p) => win && !win.isDestroyed() && win.webContents.send('progress', p);
@@ -48,10 +50,15 @@ function borrowFromEveRouter() {
   } catch (e) { return null; }
 }
 
+// The website rebuilds its map every Tuesday from CCP's data.
+const mapIsStale = (u) => !(Date.now() - new Date(u.builtAt || 0).getTime() < 7 * 24 * 3600 * 1000);
+
 ipcMain.handle('universe:get', async (_e, { refresh } = {}) => {
   if (!refresh) {
     const cached = loadCached(dataDir()) || borrowFromEveRouter();
-    if (cached) return cached;
+    if (cached && !mapIsStale(cached)) return cached;
+    // Older than a week: quietly grab the website's latest map (new gates after a patch).
+    if (cached) { try { return await fetchPrebuilt(dataDir(), progress); } catch (e) { return cached; } }
   }
   return getUniverseData(dataDir(), progress);
 });

@@ -1,0 +1,64 @@
+{
+  "name": "eve-market-finder",
+  "productName": "New Eden Market Finder",
+  "version": "1.4.0",
+  "description": "Windows app for New Eden Market Finder: find where to buy and sell EVE Online items.",
+  "main": "main.js",
+  "author": "Dale Smith",
+  "license": "MIT",
+  "scripts": {
+    "start": "node scripts/copy-web.js && electron .",
+    "test": "node scripts/test-web.js",
+    "dist": "node scripts/copy-web.js && electron-builder --win nsis --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "resedit": "^2.0.3",
+    "pe-library": "^1.0.1"
+  },
+  "build": {
+    "appId": "com.fivetalents.evemarketfinder",
+    "productName": "New Eden Market Finder",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "lib/**/*",
+      "web/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "New Eden Market Finder",
+      "artifactName": "New-Eden-Market-Finder-Setup-${version}.${ext}"
+    },
+    "afterPack": "build/after-pack.js",
+    "publish": {
+      "provider": "github",
+      "owner": "fivetalentsrealestate",
+      "repo": "New-Eden-Tools",
+      "channel": "market-finder"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fivetalentsrealestate/New-Eden-Tools.git",
+    "directory": "apps/eve-market-finder"
+  }
+}

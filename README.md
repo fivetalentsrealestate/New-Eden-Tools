@@ -24,7 +24,7 @@ It opens full-screen with its own icon and remembers your settings. On the maps 
 
 ## On Windows (desktop app with a desktop icon)
 
-**[⬇ Download the installers](https://github.com/fivetalentsrealestate/New-Eden-Tools/releases/latest)**: pick *EVE Jump Planner Setup* or *EVE Gate Planner Setup* under **Assets** and double-click it. Windows may say "Windows protected your PC", because the installer isn't code-signed. Click **More info → Run anyway**.
+**[⬇ Download the installers](https://github.com/fivetalentsrealestate/New-Eden-Tools/releases/latest)**: pick *EVE-Jump-Planner-Setup*, *EVE-Gate-Planner-Setup* or *New-Eden-Market-Finder-Setup* under **Assets** and double-click it. Windows may say "Windows protected your PC", because the installer isn't code-signed. Click **More info → Run anyway**.
 
 To build them yourself instead, you'll need [Node.js LTS](https://nodejs.org):
 
@@ -37,7 +37,9 @@ npm run dist                # build an installer with a desktop icon
 
 Full instructions: [EVE Jump Planner](apps/eve-jump-planner/README.md) · [Gate Planner](apps/eve-gate-planner/README.md)
 
-New installers are built automatically. Whenever either desktop app changes on `main`, GitHub builds both on Windows and attaches them to the release named after the version in `apps/eve-jump-planner/package.json`. Bump that version to publish a new release instead of updating the current one.
+**The desktop apps update themselves** (v1.4.0 and later). On startup, and every few hours, each app checks the latest GitHub release for a newer version, downloads it in the background and offers to restart. Choose *Later* and it installs when you close the app. The planners also refresh their map from the website when it's more than a week old, and the desktop Market Finder opens the live website version, so its items and gates are always current (it falls back to a built-in copy when offline).
+
+**One push updates everything.** Every push to `main` rebuilds the website. If a desktop app changed, GitHub also builds all three installers on Windows and attaches them, plus each app's update file, to the release named after the version in `apps/eve-jump-planner/package.json`. To publish a new version that the installed apps pick up, set the same version on all three apps with `npm run set-version -- 1.4.1` and push.
 
 ## How it's built
 
