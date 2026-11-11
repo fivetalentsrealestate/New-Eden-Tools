@@ -173,7 +173,8 @@ function buildUniverse(raw) {
   return out;
 }
 
-async function buildFromSde(dataDir, onProgress) {
+// opts.market: also write market.json (systems, gates, market items and groups) for New Eden Market Finder.
+async function buildFromSde(dataDir, onProgress, opts = {}) {
   fs.mkdirSync(dataDir, { recursive: true });
   const zipPath = path.join(dataDir, 'sde-latest-jsonl.zip');
   await download(SDE_URL, zipPath, onProgress);
@@ -181,9 +182,12 @@ async function buildFromSde(dataDir, onProgress) {
   // Pass 1: attribute names and ship groups (small files)
   const attrId = {};
   const groups = {};
-  await readFiles(zipPath, ['dogmaAttributes.jsonl', 'groups.jsonl'], (file, rec) => {
+  const marketGroups = {};
+  const pass1 = ['dogmaAttributes.jsonl', 'groups.jsonl'].concat(opts.market ? ['marketGroups.jsonl'] : []);
+  await readFiles(zipPath, pass1, (file, rec) => {
     if (file === 'dogmaAttributes.jsonl') attrId[rec.name] = rec._key;
-    else groups[rec._key] = { n: enName(rec.name), cat: rec.categoryID };
+    else if (file === 'groups.jsonl') groups[rec._key] = { n: enName(rec.name), cat: rec.categoryID };
+    else marketGroups[rec._key] = [enName(rec.name), rec.parentGroupID || null];
   }, onProgress);
   const A_FUEL = attrId.jumpDriveConsumptionAmount;
   const A_TYPE = attrId.jumpDriveConsumptionType;
@@ -205,12 +209,14 @@ async function buildFromSde(dataDir, onProgress) {
   }, onProgress);
   if (!raw.systems.length) throw new Error('The SDE download did not contain map data (mapSolarSystems.jsonl missing).');
 
-  // Pass 3: names for those ships and their isotopes
-  if (jumpers.size) {
+  // Pass 3: names for those ships and their isotopes (and every market item, if asked)
+  const marketTypes = [];
+  if (jumpers.size || opts.market) {
     const fuelIds = new Set([...jumpers.values()].map((j) => j.fuelType));
     raw.ships = [];
     raw.fuelTypes = {};
     await readFiles(zipPath, ['types.jsonl'], (_file, t) => {
+      if (opts.market && t.published && t.marketGroupID) marketTypes.push([t._key, enName(t.name), t.marketGroupID]);
       if (fuelIds.has(t._key)) raw.fuelTypes[t._key] = { n: enName(t.name), vol: t.volume || 0 };
       const j = jumpers.get(t._key);
       const g = j && groups[t.groupID];
@@ -222,8 +228,10 @@ async function buildFromSde(dataDir, onProgress) {
   }
 
   onProgress && onProgress({ stage: 'build' });
+  if (raw.ships && !raw.ships.length && !jumpers.size) { delete raw.ships; delete raw.fuelTypes; }
   const universe = buildUniverse(raw);
   fs.writeFileSync(path.join(dataDir, 'universe.json'), JSON.stringify(universe));
+  if (opts.market) fs.writeFileSync(path.join(dataDir, 'market.json'), JSON.stringify(buildMarketData(universe, marketTypes, marketGroups)));
   try { fs.unlinkSync(zipPath); } catch (e) { /* ignore */ }
   return universe;
 }
@@ -239,4 +247,20 @@ function loadCached(dataDir, { needShips = false } = {}) {
   } catch (e) { return null; }
 }
 
-module.exports = { buildFromSde, fetchPrebuilt, getUniverseData, loadCached, buildUniverse, download, SDE_URL, PREBUILT_URL };
+// Data block for New Eden Market Finder: { sys: {id: [name, sec, region]}, reg, adj, types: [[id, name, marketGroup]], groups: {id: [name, parent]} }
+function buildMarketData(universe, types, groups) {
+  const sys = {}, reg = {}, adj = {};
+  for (const s of universe.systems) {
+    sys[s.id] = [s.n, Math.round(s.s * 1e4) / 1e4, s.r];
+    if (universe.regions[s.r]) reg[s.r] = universe.regions[s.r];
+  }
+  for (const [a, b] of universe.jumps) {
+    (adj[a] = adj[a] || []).push(b);
+    (adj[b] = adj[b] || []).push(a);
+  }
+  for (const k of Object.keys(adj)) adj[k].sort((x, y) => x - y);
+  types.sort((x, y) => x[0] - y[0]);
+  return { sys, reg, adj, types, groups };
+}
+
+module.exports = { buildFromSde, buildMarketData, fetchPrebuilt, getUniverseData, loadCached, buildUniverse, download, SDE_URL, PREBUILT_URL };

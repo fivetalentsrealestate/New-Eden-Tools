@@ -1279,16 +1279,16 @@ $('sheetHandle').addEventListener('click', () => setSheet(!$('sidebar').classLis
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 
 // ---------- asteroids & ore ----------
-const ORE_COLORS = { Simple: '#9fb3c8', Coherent: '#6fdc8c', Variegated: '#ffd166', Complex: '#ff9f6b', Mercoxit: '#d79bff' };
+const ORE_COLORS = { Simple: '#9fb3c8', Coherent: '#6fdc8c', Variegated: '#ffd166', Complex: '#ff9f6b', Mercoxit: '#d79bff', Pochven: '#ff6b8a', Empire: '#4fc3f7' };
 function oreChip(ore) {
   const g = OreInfo.group(ore);
-  return `<span class="tag ore" style="color:${ORE_COLORS[g] || 'var(--text)'};border-color:${ORE_COLORS[g] || 'var(--line)'}55" title="${g ? esc(g) + ' ore: uses ' + esc(g) + ' mining crystals' : ''}">${esc(ore)}</span>`;
+  return `<span class="tag ore" style="color:${ORE_COLORS[g] || 'var(--text)'};border-color:${ORE_COLORS[g] || 'var(--line)'}55" title="${g === 'Empire' ? 'Empire Ore (X-Grade): Bulwark systems only' : g === 'Pochven' ? 'Pochven ore' : g ? esc(g) + ' ore: uses ' + esc(g) + ' mining crystals' : ''}">${esc(ore)}</span>`;
 }
 function oreHtml(sys, gates) {
   const region = state.regions[sys.r] || '';
-  const belts = OreInfo.beltOres(sys.s, region);
+  const belts = OreInfo.beltOres(sys.s, region, sys.id);
   const border = Math.round(sys.s * 10) / 10 === 0.5 && gates.some((g) => !g.jb && Math.round(g.s.s * 10) / 10 < 0.5);
-  const sites = OreInfo.oreSites(sys.s, region, border);
+  const sites = OreInfo.oreSites(sys.s, region, border, sys.id);
   const groups = [...new Set(belts.ores.map((o) => OreInfo.group(o)).filter(Boolean))];
   return `<div class="ore-box">
     <div class="h">Asteroids &amp; ore</div>
@@ -1312,7 +1312,7 @@ function oreIndex() {
   for (const s of state.systems) {
     const region = state.regions[s.r] || '';
     const border = Math.round(s.s * 10) / 10 === 0.5 && (state.graph.get(s.id) || []).some((e) => e.type !== 'bridge' && state.byId.get(e.to) && Math.round(state.byId.get(e.to).s * 10) / 10 < 0.5);
-    ore.idx.set(s.id, { belt: new Set(OreInfo.beltOres(s.s, region).ores), site: new Set(OreInfo.siteOres(s.s, region, border)) });
+    ore.idx.set(s.id, { belt: new Set(OreInfo.beltOres(s.s, region, s.id).ores), site: new Set(OreInfo.siteOres(s.s, region, border, s.id)) });
   }
   return ore.idx;
 }

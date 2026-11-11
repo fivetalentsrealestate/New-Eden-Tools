@@ -11,6 +11,8 @@ Free tools for EVE Online that run in any browser, install on your phone like an
 | <img src="apps/eve-gate-planner/renderer/icon-192.png" width="48"> | **[Gate Planner](https://fivetalentsrealestate.github.io/New-Eden-Tools/gates/)** | **Stargate** route planner with the in-game autopilot settings: Shorter / Safer / Less Secure, security penalty, jump bridges, pod-kill / Triglavian / EDENCOM avoidance, waypoints, plus live traffic, danger ratings for every system on the route and your own pilots on the map. |
 |  | **[Character Export](https://fivetalentsrealestate.github.io/New-Eden-Tools/export/)** | Log in with your characters through CCP's official EVE login (PKCE, no secret) and download their skills, assets, locations, PI colonies, clones, wallet, industry jobs and market orders as a JSON file. Runs entirely in your browser. Needs your own app's Client ID from developers.eveonline.com, with `https://fivetalentsrealestate.github.io/New-Eden-Tools/export/` as the callback URL. |
 
+**Map and market data refresh automatically.** Every Tuesday (after CCP's usual patch window), and on every update, the website rebuilds its map from CCP's Static Data Export, so new stargates such as Fractured Skies' Renyn–Jufvitte and Ienakkamon–T-LIWS links show up in the planners, and the Market Finder's systems, gates and item list come from the same download. In the desktop apps, click **Update map data** to pull the latest map.
+
 ## On your phone
 
 Open any tool from the link above, then:

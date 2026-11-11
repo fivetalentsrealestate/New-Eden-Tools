@@ -13,7 +13,11 @@
     Minmatar: ['Heimatar', 'Metropolis', 'Molden Heath']
   };
   const DRONE_REGIONS = ['Cobalt Edge', 'Etherium Reach', 'Malpais', 'Oasa', 'Outer Passage', 'Perrigen Falls', 'The Kalevala Expanse', 'The Spire'];
-  const factionOf = (region) => Object.keys(FACTION).find((f) => FACTION[f].includes(region)) || null;
+  // Systems whose empire differs from their region's (Fractured Skies: Starkman and Ezzara became Minmatar)
+  const SYSTEM_FACTION = { 30002960: 'Minmatar', 30002962: 'Minmatar' };
+  const factionOf = (region, id) => (id && SYSTEM_FACTION[id]) || Object.keys(FACTION).find((f) => FACTION[f].includes(region)) || null;
+  // Empire Ores (Cradle of War, June 2026): one X-Grade ore per empire, in that empire's high-sec Bulwark systems
+  const EMPIRE_ORE = { Amarr: 'Raspite X-Grade', Caldari: 'Polycrase X-Grade', Gallente: 'Moissanite X-Grade', Minmatar: 'Kangite X-Grade' };
 
   // Mining crystal group for each ore (crystals are cut for a group, e.g. "Coherent Asteroid Mining Crystal")
   const GROUP = {
@@ -21,12 +25,13 @@
     Kernite: 'Coherent', Omber: 'Coherent', Jaspet: 'Coherent', Hemorphite: 'Coherent', Hedbergite: 'Coherent', Ytirium: 'Coherent',
     Gneiss: 'Variegated', 'Dark Ochre': 'Variegated', Crokite: 'Variegated',
     Bistot: 'Complex', Arkonor: 'Complex', Spodumain: 'Complex',
-    Mercoxit: 'Mercoxit', Bezdnacine: 'Pochven', Rakovene: 'Pochven', Talassonite: 'Pochven'
+    Mercoxit: 'Mercoxit', Bezdnacine: 'Pochven', Rakovene: 'Pochven', Talassonite: 'Pochven',
+    'Moissanite X-Grade': 'Empire', 'Kangite X-Grade': 'Empire', 'Polycrase X-Grade': 'Empire', 'Raspite X-Grade': 'Empire'
   };
 
-  function beltOres(sec, region) {
+  function beltOres(sec, region, id) {
     const s = Math.round(sec * 10) / 10;
-    const f = factionOf(region);
+    const f = factionOf(region, id);
     if (region === 'Pochven') return { ores: ['Bezdnacine', 'Rakovene', 'Talassonite'], note: 'Pochven ores' };
     if (s >= 0.5) {
       const ores = ['Veldspar', 'Scordite'];
@@ -53,13 +58,16 @@
     return { ores, note: 'Nullsec belts vary by region; lower true security means richer ore' };
   }
 
-  function oreSites(sec, region, bordersLowsec) {
+  function oreSites(sec, region, bordersLowsec, id) {
     const s = Math.round(sec * 10) / 10;
+    const f = factionOf(region, id);
     const out = [];
     if (region === 'Pochven') return ['Pochven ore sites (Bezdnacine, Rakovene, Talassonite, some Spodumain and Mercoxit)'];
     if (s >= 0.5) {
       if (s <= 0.8) out.push('Omber deposit, or Kernite and Omber deposit (rare)');
       if (s === 0.5 && bordersLowsec) out.push('Small Mordunium deposit (rare, high/low border)', 'Border-rare asteroid site: may hold Ytirium');
+      if (f) out.push(`${EMPIRE_ORE[f]} site, if this is a ${f} Bulwark system (star map: Bulwark Mining filter)`);
+      if (f === 'Minmatar') out.push('Phased Fields mining instance (Fractured Skies): the richest high-sec mining site, somewhere in Minmatar high-sec');
       return out;
     }
     if (sec > 0) {
@@ -71,13 +79,15 @@
   }
 
   // Ores that ore anomalies can bring to a system (same rules as oreSites).
-  function siteOres(sec, region, bordersLowsec) {
+  function siteOres(sec, region, bordersLowsec, id) {
     const s = Math.round(sec * 10) / 10;
+    const f = factionOf(region, id);
     if (region === 'Pochven') return ['Bezdnacine', 'Rakovene', 'Talassonite', 'Spodumain', 'Mercoxit'];
     if (s >= 0.5) {
       const out = [];
       if (s <= 0.8) out.push('Omber', 'Kernite');
       if (s === 0.5 && bordersLowsec) out.push('Mordunium', 'Ytirium');
+      if (f) out.push(EMPIRE_ORE[f]);
       return out;
     }
     if (sec > 0) return ['Jaspet', 'Gneiss', 'Dark Ochre', 'Crokite', 'Hedbergite', 'Hemorphite', 'Mordunium'];
@@ -87,7 +97,8 @@
   const ALL_ORES = ['Veldspar', 'Scordite', 'Pyroxeres', 'Plagioclase', 'Mordunium',
     'Kernite', 'Omber', 'Jaspet', 'Hemorphite', 'Hedbergite', 'Ytirium',
     'Gneiss', 'Dark Ochre', 'Crokite', 'Bistot', 'Arkonor', 'Spodumain', 'Mercoxit',
-    'Bezdnacine', 'Rakovene', 'Talassonite'];
+    'Bezdnacine', 'Rakovene', 'Talassonite',
+    'Moissanite X-Grade', 'Kangite X-Grade', 'Polycrase X-Grade', 'Raspite X-Grade'];
 
   // Asteroid belt count from ESI, cached per session.
   const beltCache = new Map();

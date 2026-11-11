@@ -28,6 +28,24 @@ function copyDir(from, to) {
   }
 }
 
+// Puts fresh systems, stargates and market items (from the same SDE download) into the
+// Market Finder page, so new items and new gates appear without editing the page by hand.
+function refreshMarketData(file) {
+  const page = path.join(OUT, 'market', 'index.html');
+  try {
+    const m = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (Object.keys(m.sys).length < 5000 || m.types.length < 15000 || Object.keys(m.groups).length < 1500) throw new Error('market data looks incomplete');
+    const html = fs.readFileSync(page, 'utf8');
+    const re = /(<script id="data" type="application\/json">)([\s\S]*?)(<\/script>)/;
+    if (!re.test(html)) throw new Error('data block not found in market page');
+    const json = JSON.stringify(m).replace(/<\//g, '<\\/');
+    fs.writeFileSync(page, html.replace(re, (_x, a, _b, c) => a + json + c));
+    console.log(`Market data: ${Object.keys(m.sys).length} systems, ${m.types.length} items, ${Object.keys(m.groups).length} market groups`);
+  } catch (e) {
+    console.warn(`Market Finder keeps its built-in data (${e.message})`);
+  }
+}
+
 async function main() {
   const i = process.argv.indexOf('--data');
   const dataArg = i > -1 ? process.argv[i + 1] : null;
@@ -50,8 +68,9 @@ async function main() {
     const u = await buildFromSde(tmp, (p) => {
       if (p.stage === 'download' && p.got - last > 20 * 1048576) { last = p.got; console.log(`  downloaded ${(p.got / 1048576).toFixed(0)} MB`); }
       if (p.stage === 'extract') console.log(`  reading ${p.file}`);
-    });
+    }, { market: true });
     fs.copyFileSync(path.join(tmp, 'universe.json'), path.join(dataDir, 'universe.json'));
+    refreshMarketData(path.join(tmp, 'market.json'));
     fs.rmSync(tmp, { recursive: true, force: true });
     console.log(`Map data: ${u.systems.length} systems, ${u.jumps.length} stargate connections, ${(u.ships || []).length} jump-capable ships`);
     if (u.systems.length < 5000) throw new Error('Map data looks incomplete — refusing to publish it.');
