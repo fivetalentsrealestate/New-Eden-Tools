@@ -11,6 +11,8 @@
   const SSO = 'https://login.eveonline.com/v2/oauth/token';
   const LS_CHARS = 'net.export.chars';
   const LS_CLIENT = 'net.export.clientId';
+  const BUILT_IN_CLIENT_ID = 'b019f00753ac4cdd9e4f6caf48a0bf4e'; // same public ID as the Character Export page
+  const clientId = () => load(LS_CLIENT, '') || BUILT_IN_CLIENT_ID;
   const ZK_TTL = 60 * 60 * 1000;
 
   const load = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
@@ -87,7 +89,7 @@
   // ---------- my pilots (website only) ----------
   function pilotsAvailable() {
     const chars = load(LS_CHARS, {});
-    return !!(window.api && window.api.web && load(LS_CLIENT, '') && Object.keys(chars).length);
+    return !!(window.api && window.api.web && clientId() && Object.keys(chars).length);
   }
 
   async function token(c) {
@@ -95,7 +97,7 @@
     const res = await fetch(SSO, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: c.refresh, client_id: load(LS_CLIENT, '') })
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: c.refresh, client_id: clientId() })
     });
     if (!res.ok) throw new Error('login expired, add the character again on the Character Export page');
     const t = await res.json();
