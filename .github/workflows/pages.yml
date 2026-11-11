@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # lets the build save the refreshed Market Finder data back to the repo
   pages: write
   id-token: write
 
@@ -36,6 +36,25 @@ jobs:
 
       - name: Build site and map data
         run: npm run build
+
+      # Keep the repo's copy of the Market Finder in step with the published one (fresh items,
+      # systems and gates from CCP's data). Pushes made with this workflow's token don't start
+      # another build, and [skip ci] makes sure of it.
+      - name: Save refreshed Market Finder data to the repo
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          cp _site/market/index.html apps/market-finder/index.html
+          if git diff --quiet -- apps/market-finder/index.html; then
+            echo "Market Finder data unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/market-finder/index.html
+          git commit -m "Refresh Market Finder data from CCP's static data [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
 
       - uses: actions/configure-pages@v5
 
